@@ -8,8 +8,8 @@
 
 ;; program and module
 (struct: .p ([modules : .m*] [accessors : (Setof .st-ac)] [main : .e]) #:transparent)
-(struct: .m ([order : (Listof Sym)] [defs : (Map Sym (Pairof .e (U #f .e)))]) #:transparent)
 (struct: .m* ([order : (Listof Sym)] [modules : (Map Sym .m)]) #:transparent)
+(struct: .m ([order : (Listof Sym)] [defs : (Map Sym (Pairof .e (U #f .e)))]) #:transparent)
 
 ;; expression
 (define-data (.e)
@@ -48,7 +48,7 @@
 (: •! : → .•ₗ)
 ;; Generate new labeled hole
 (define •!
-  (let ([n : Negative-Integer -1])
+  (let ([n : Negative-Integer -2 #|HACK|#])
     (λ () (begin0 (.•ₗ n) (set! n (- n 1))))))
 
 (: FV : (case→ [.e → (Setof Int)]

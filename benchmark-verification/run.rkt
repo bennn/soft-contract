@@ -1,7 +1,7 @@
 #lang typed/racket
 (require "../utils.rkt" "../show.rkt" "../lang.rkt" "../closure.rkt" "../machine.rkt"
          (only-in "../query.rkt" [query cvc4])
-         (only-in "../query-z3.rkt" [query z3])
+         (only-in "../query-z3.rkt" [query z3] [model z3/model])
          (only-in "../provability.rkt" ext-solver))
 (require/typed "../read.rkt" [read-p (Any → .p)])
 (require/typed racket/file [file->lines (Path-String → (Listof String))])
@@ -11,19 +11,20 @@
 (define-type N Nonnegative-Integer)
 (define-type Bm-Result (List .ς+ N N N))
 
-(define: mode : Mode 'verbose)
-(define: files : (Listof String) '())
-(define: solver : (.σ .V .V → .R) cvc4)
-(define TIMEOUT 1200)
-(define ITER 10)
+(define mode : Mode 'verbose)
+(define files : (Listof String) '())
+(define solver : (.σ .V .V → .R) z3)
+(define TIMEOUT 5)
+(define ITER 1)
 (: avg : Real → Real)
 (define (avg x) (* (/ x ITER) 1.0))
 
+(ext-solver z3 #;cvc4)
 (command-line
  #:once-each
  [("-v" "--verbose") "Verbose mode" (set! mode 'verbose)]
  [("-V" "--overbose") "Verbose, with heap dump" (set! mode 'overbose)]
- [("-z" "--z3") "User Z3 instead of CVC4" (set! solver z3)]
+ [("-z" "--z3") "User Z3 instead of CVC4" (ext-solver z3)]
  #:args fnames
  (set! files (if (empty? fnames)
                  (sort (map path->string (directory-list)) string<=?)
@@ -48,61 +49,61 @@
   (collect-garbage)
   (within-time: Bm-Result
                 TIMEOUT
-                (let-values: ([([r : (List .ς+)] [t1 : N] [t2 : N] [t3 : N])
-                               (time-app
-                                (λ (p) ; can't get for/last to type check...
-                                  (let: ([ans : .ς+ ∅])
-                                    (for: : Void ([i ITER]) (set! ans (ev p)))
-                                    ans))
-                                (list p))])
+                (let-values ([([r : (List .ς+)] [t1 : N] [t2 : N] [t3 : N])
+                              (time-app
+                               (λ (p) ; can't get for/last to type check...
+                                 (let ([ans : .ς+ ∅])
+                                   (for ([i ITER]) (set! ans (ev p)))
+                                   ans))
+                               (list p))])
                   (list (first r) t1 t2 t3))))
 
 (define-syntax-rule (+! x v) (when (number? v) (set! x (+ x v))))
 
-(parameterize ([ext-solver solver])
-  
-  #;(when (eq? mode 'tex)
-      (printf "Program & Lines & Checks & T1 & B1 & T2 & B2\\\\ \\hline \\hline~n"))
-  #;(define-values (L C T1 T2 B1 B2) (values 0 0 0 0 0 0))
-  (for ([fn files] #:when (regexp-match? #rx"sch$" fn))
-    (let* ([lines (for/sum: : Int ([s (file->lines fn)]
-                                   #:unless (regexp-match? #rx"^( *)(;.*)*( *)$" s)) 1)]
-           [name (string-trim fn ".sch")]
-           #;[_ (printf "reading ~a...~n" fn)]
-           [p (read-p (file->list fn))]
-           [checks (checks# p)])
-      (match mode
-        [(or 'verbose 'overbose)
-         ; only run the improved interpreter for verbose modes
-         (match (benchmark ev p)
-           [#f (printf "~a: ~a lines, ~a checks, timeout~n~n" name lines checks)]
-           [(list (list r t1 t2 t3))
-            (printf "~a: ~a lines, ~a checks, ~ams~n"
-                    name lines checks (avg t1))
-            (cond
-              [(set-empty? r) (printf "   (NOTHING)~n")]
-              [else
-               (match mode
-                 ['verbose (for ([r (for/set: Any ([ς r])
-                                      (match-let ([(.ς (? .A? A) σ _) ς])
-                                        (show-A σ A)))])
-                             (printf "-- ~a~n" r))]
-                 ['overbose (for ([r (for/set: (Pairof Any Any) ([ς r])
-                                       (match-let* ([(.ς (? .A? A) σ _) ς])
-                                         (show-Ans σ A)))])
-                              (printf "-- ~a~n   ~a~n" (car r) (cdr r)))])])
-            (printf "~n")])]
-        #;['tex
-           ; compare with disabled interpreter, dump table in latex format
-           (let ([a1 (benchmark ev p)]
-                 [a2 #f]) ; FIXME
-             (let ([t1 (a→time a1)]
-                   [t2 "$\\infty$"] ; FIXME
-                   [b1 (a→#blame a1)]
-                   [b2 "$\\infty$"]) ; FIXME
-               (+! L lines) (+! C checks)
-               (+! T1 t1) (+! T2 t2) (+! B1 b1) (+! B2 b2)
-               (printf "~a & ~a & ~a & ~a & ~a & ~a & ~a\\\\~n" name lines checks t1 b1 t2 b2)))])))
-  #;(when (eq? mode 'tex)
-      (printf "\\hline~n")
-      (printf "TOTAL & ~a & ~a & ~a & ~a & ~a & ~a~n" L C T1 B1 T2 B2)))
+#;(when (eq? mode 'tex)
+   (printf "Program & Lines & Checks & T1 & B1 & T2 & B2\\\\ \\hline \\hline~n"))
+#;(define-values (L C T1 T2 B1 B2) (values 0 0 0 0 0 0))
+(for ([fn files] #:when (regexp-match? #rx"sch$" fn))
+  (define lines ; count non-empty, non-comment lines
+    (for/sum : Int ([s (file->lines fn)] #:unless (regexp-match? #rx"^( *)(;.*)*( *)$" s)) 1))
+  (define name (string-trim fn ".sch"))
+  (define p (read-p (file->list fn)))
+  (define checks (checks# p))
+  (match mode
+    [(or 'verbose 'overbose)
+     ;; Only run the improved interpreter for verbose modes
+     (match (benchmark ev p)
+       [#f (printf "~a: ~a lines, ~a checks, timeout~n~n" name lines checks)]
+       [(list (list r t1 t2 t3))
+        (printf "~a: ~a lines, ~a checks, ~ams~n"
+                name lines checks (avg t1))
+        (cond
+         [(set-empty? r) (printf "   (NOTHING)~n")]
+         [else
+          (for ([ς r])
+            (match-define (.ς (? .A? A) σ _) ς)
+            (match mode
+              ['verbose
+               (printf "-- ~a~n" (show-A σ A))
+               (when (.blm? A)
+                 (define σ′ (z3/model σ))
+                 (when (.σ? σ′)
+                   (printf "   Counterexample:~n~a~n" (show-ce p σ′))))]
+              ['overbose
+               (define res (show-Ans σ A))
+               (printf "-- ~a~n    ~a~n" (car res) (cdr res))]))])
+        (printf "~n")])]
+    #;['tex
+    ;; Compare with disabled interpreter, dump table in latex format
+    (let ([a1 (benchmark ev p)]
+    [a2 #f]) ; FIXME
+    (let ([t1 (a→time a1)]
+    [t2 "$\\infty$"] ; FIXME
+    [b1 (a→#blame a1)]
+    [b2 "$\\infty$"]) ; FIXME
+    (+! L lines) (+! C checks)
+    (+! T1 t1) (+! T2 t2) (+! B1 b1) (+! B2 b2)
+    (printf "~a & ~a & ~a & ~a & ~a & ~a & ~a\\\\~n" name lines checks t1 b1 t2 b2)))]))
+#;(when (eq? mode 'tex)
+(printf "\\hline~n")
+(printf "TOTAL & ~a & ~a & ~a & ~a & ~a & ~a~n" L C T1 B1 T2 B2))
