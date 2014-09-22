@@ -34,10 +34,10 @@
   #;(printf "~a~n~n" p)
   (match p
     [`((module ,l* ,d** ...) ... (require ,_ ...) ,e)
-     (let ([syms (pass-1 p)])
-       (gen-havoc
-        (.p (.m* l* (for/hash ([l l*] [d* d**]) (values l (read-m syms l d*))))
-            (read-e syms '† '() e))))]
+     (define syms (pass-1 p))
+     (define ms (for/hash ([l l*] [d* d**]) (values l (read-m syms l d*))))
+     (define accs (gen-accs (hash-values ms)))
+     (.p (.m* l* ms) accs (read-e syms '† '() e))]
     [`(,(and m `(module ,_ ,_ ...)) ... ,e) (read-p `(,@m (require) ,e))]
     [_ (error "Invalid program form. Expect ((module x c v)⋯ (require x⋯) e)")]))
 
@@ -87,7 +87,7 @@
                 [(m2 ro)
                  (for/fold ([m m1] [ro rev-order]) ([(l c) (in-hash decs)]
                                                     #:unless (hash-has-key? m1 l))
-                   (values (hash-set m l (cons • c)) (cons l ro)))])
+                   (values (hash-set m l (cons (•!) c)) (cons l ro)))])
     (.m (reverse ro) m2)))
 
 (define (read-e syms l xs e)
@@ -156,7 +156,7 @@
     [`(,(or 'lambda 'λ) (,x ...) ,e) (.λ (length x) (read-e syms l (bind xs x) e) #f)]
     [`(,(or 'lambda* 'λ*) (,x ... ,xn) ,e)
      (.λ (+ 1 (length x)) (read-e syms l (bind (bind xs x) xn) e) #t)]
-    [(or '• 'OPQ) •]
+    [(or '• 'OPQ) (•!)]
     [`(quote ,x) (.b x)]
     [(or (? num? x) (? bool? x) (? str? x)) (prim x)]
     #;[`(apply ,f ,xs) (.apply (go f) (go xs) l)]

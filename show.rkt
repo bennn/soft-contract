@@ -101,7 +101,7 @@
       
       [(.λ n e v?) (let ([x* (vars-not-in n ctx)])
                      `(,(if v? 'λ* 'λ) ,x* ,(go (append x* ctx) e)))]
-      [(.•) '•]
+      [(? .•ₗ?) '•]
       [(.b b) (show-b b)]
       [(.st-mk t _) t]
       [(.st-ac 'cons _ 0) 'car]

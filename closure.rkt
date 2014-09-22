@@ -25,6 +25,7 @@
 ;; blessed arrow, struct, and closed lambda
 (define-type .U (U .prim .• .Ar .St .λ↓ .Λ/C .St/C .μ/C .X/C))
 (define-predicate .U? .U)
+(struct: .• () #:transparent)
 (struct: .Ar ([c : .V] [v : .V] [l^3 : Sym^3]) #:transparent)
 (struct: .St ([tag : Sym] [fields : (Listof .V)]) #:transparent)
 (struct: .λ↓ ([f : .λ] [ρ : .ρ]) #:transparent)
@@ -32,6 +33,7 @@
 (struct: .St/C ([t : Sym] [fields : (Listof .V)]) #:transparent)
 (struct: .μ/C ([x : Sym] [c : .V]) #:transparent)
 (struct: .X/C ([x : Sym]) #:transparent)
+(define • (.•))
 
 (: .¬/C : .V → .V)
 (define (.¬/C V) (.// (.St '¬/c (list V)) ∅))
@@ -85,7 +87,7 @@
       [(.Λ/C Cx (.↓ e ρ) v?) (.Λ/C (go Cx) (.↓ e (go ρ)) v?)]
       [(.St/C t V*) (.St/C t (go V*))]
       [(.μ/C x C) (.μ/C x (go C))]
-      [(and U (or (? .X/C?) (? .prim?) (? .•?))) U]
+      [(and U (or (? .X/C?) (? .prim?) (.•))) U]
       ; ρ
       [(.ρ m l)
        (.ρ
@@ -132,7 +134,7 @@
       [(.Λ/C Cx (.↓ e ρ) v?) (.Λ/C (go! Cx) (.↓ e (go! ρ)) v?)]
       [(.St/C t V*) (.St/C t (go! V*))]
       [(.μ/C x C) (.μ/C x (go! C))]
-      [(and U (or (? .X/C?) (? .prim?) (? .•?))) U]
+      [(and U (or (? .X/C?) (? .prim?) (.•))) U]
       ;ρ
       [(.ρ m l)
        (.ρ
@@ -200,7 +202,7 @@
 
 (define** 
   [MT (→V (.St 'empty empty))]
-  [♦ (→V •)] [V∅ (.μ/V '_ ∅)]
+  [♦ (→V (.•))] [V∅ (.μ/V '_ ∅)]
   [ZERO (Prim 0)] [ONE (Prim 1)] [TT (Prim #t)] [FF (Prim #f)]
   [INT/C (Prim 'int?)] [REAL/C (Prim 'real?)] [NUM/C (Prim 'num?)]
   [STR/C (Prim 'str?)] [PROC/C (Prim 'proc?)] [SYM/C (Prim 'symbol?)])
@@ -288,7 +290,7 @@
                                             [(? set? s) (set-union a s)]
                                             [(? .V? C) (when (match? C (.// (.•) _)) (error "ha!")) (set-add a C)]
                                             [_ a]))])
-                          (if (set-empty? Cs) ♦ (.// • Cs))))
+                          (if (set-empty? Cs) ♦ (.// (.•) Cs))))
               (+ 1 i))
           (.L i))))
 
@@ -443,7 +445,7 @@
           [(.λ 1 (.@ (.x i) (list (.x 0)) _) #f) (simplify (ρ@ ρ (- i 1)))]
           [(.λ 1 (.@ (? .v? v) (list (.x 0)) _) #f)
            (match v
-             [(.•) ♦]
+             [(? .•ₗ?) ♦]
              [(? .prim? p) (→V p)]
              [(and (? .λ? f) (? closed? f)) (simplify (.// (.λ↓ f ρ∅) C*))]
              [_ V])]
@@ -556,3 +558,4 @@
       [_ (void)]))
   (go! ρ)
   ac)
+

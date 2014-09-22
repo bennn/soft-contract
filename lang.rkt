@@ -7,7 +7,7 @@
 ;; prefixing types with dots just so i can use 1-letter variables without shadowing them
 
 ;; program and module
-(struct: .p ([modules : .m*] [main : .e]) #:transparent)
+(struct: .p ([modules : .m*] [accessors : (Setof .st-ac)] [main : .e]) #:transparent)
 (struct: .m ([order : (Listof Sym)] [defs : (Map Sym (Pairof .e (U #f .e)))]) #:transparent)
 (struct: .m* ([order : (Listof Sym)] [modules : (Map Sym .m)]) #:transparent)
 
@@ -15,7 +15,7 @@
 (define-data (.e)
   (subset: (.v)
     (.λ [arity : Int] [body : .e] [var? : Bool])    
-    (.•)
+    (.•ₗ [l : Negative-Integer])
     (subset: (.prim)
       (.b [unboxed : (U Num Bool String Sym)])
       (subset: (.o)
@@ -45,6 +45,12 @@
   #;(.or/c [l : .e] [r : .e])
   #;(.¬/c [c : .e]))
 
+(: •! : → .•ₗ)
+;; Generate new labeled hole
+(define •!
+  (let ([n : Negative-Integer -1])
+    (λ () (begin0 (.•ₗ n) (set! n (- n 1))))))
+
 (: FV : (case→ [.e → (Setof Int)]
                [.e Int → (Setof Int)]))
 (define (FV e [d 0])
@@ -72,10 +78,10 @@
 (define checks#
   (match-lambda
     [(? list? es) (for/sum ([e es]) (checks# e))]
-    [(.p (.m* _ ms) e) (+ (ann (for/sum ([(l mi) (in-hash ms)]
-                                         #:unless (equal? l '☠))
-                                 (checks# mi)) Int)
-                          (checks# e))]
+    [(.p (.m* _ ms) _ e) (+ (ann (for/sum ([(l mi) (in-hash ms)]
+                                           #:unless (equal? l '☠))
+                                   (checks# mi)) Int)
+                            (checks# e))]
     [(.m _ defs) (for/sum ([(l d) (in-hash defs)])
                    (match-let ([(cons e c) d])
                      (+ (checks# e) (match c [(? .e? c) (checks# c)] [_ 0]))))]
@@ -93,7 +99,6 @@
     [_ 0]))
 
 ;; frequently used constants
-(define • (.•))
 (define .tt (.b #t))
 (define .ff (.b #f))
 (define .any/c (.λ 1 .tt #f))
@@ -179,36 +184,18 @@
 (define ¬l
   (match-lambda [(list l+ l- lo) (list l- l+ lo)]))
 
-(: gen-havoc : .p → .p)
-(define (gen-havoc p)
-  (match-define (.p (.m* m-seq ms) e†) p)
-  
-  (define acs ; all public accessors
-    (set->list
-     (for*/fold: : (Setof .st-ac) ([acs : (Setof .st-ac) {set .car .cdr}])
-       ([m (in-hash-values ms)]
-        [defs (in-value (.m-defs m))]
-        [d (in-hash-values defs)]
-        [c (in-value (cdr d))]
-        #:when (match? c (.λ/c _ (? .struct/c?) _)))
-       (match-let* ([(.λ/c _ (.struct/c t cs) _) c]
-                    [n (length cs)])
-         (for/fold ([acs acs]) ([i n])
-           (set-add acs (.st-ac t n i)))))))
-  
-  (define havoc
-    (.λ 1 (.amb (set-add (for/set: .@ ([ac acs])
-                           (.@ (.ref 'havoc '☠ '☠)
-                               (list (.@ ac (list (.x 0)) '☠)) '☠))
-                         (.@ (.ref 'havoc '☠ '☠)
-                             (list (.@-havoc (.x 0))) '☠))) #f))
-  
-  (define ☠ (.m (list 'havoc)
-                (hash-set (ann #hash() (Map Sym (Pairof .e (U #f .e))))
-                          'havoc (cons havoc (.λ/c (list .any/c) .none/c #f)))))
-  
-  (if (hash-has-key? ms '☠) p
-      (.p (.m* (cons '☠ m-seq) (hash-set ms '☠ ☠)) e†)))
+(: gen-accs : (Sequenceof .m) → (Setof .st-ac))
+(define (gen-accs ms)
+  (for*/fold ([acs : (Setof .st-ac) {set .car .cdr}])
+             ([m ms]
+              [defs (in-value (.m-defs m))]
+              [d (in-hash-values defs)]
+              [c (in-value (cdr d))]
+              #:when (match? c (.λ/c _ (? .struct/c?) _)))
+    (match-define (.λ/c _ (.struct/c t cs) _) c)
+    (define n (length cs))
+    (for/fold ([acs acs]) ([i n])
+      (set-add acs (.st-ac t n i)))))
 
 (: amb : (Listof .e) → .e)
 (define (amb e*)
