@@ -1,6 +1,6 @@
-(module tak
+(module tak racket/base
   (provide
-   [tak (int? int? int? (int? . -> . int?) . -> . int?)])
+   (contract-out [tak (int? int? int? (int? . -> . int?) . -> . int?)]))
   (define (tak x y z k)
     (if (not (< y x))
         (k z)
@@ -18,8 +18,9 @@
                            (lambda (v3)
                              (tak v1 v2 v3 k))))))))))
 
-(module nums
-  (provide [a int?] [b int?] [c int?]))
+(module nums racket/base
+  (provide (contract-out [a int?] [b int?] [c int?])))
 
-(require tak nums)
-(tak a b c (lambda (x) x))
+(module main racket/base
+  (require tak nums)
+  (define top (tak a b c (lambda (x) x))))

@@ -1,11 +1,12 @@
-(module eo
+(module eo racket/base
   (provide
-   [even? (int? . -> . bool?)]
-   [odd? (int? . -> . bool?)])
+   (contract-out [even? (int? . -> . bool?)]
+		 [odd? (int? . -> . bool?)]))
   (define (even? n)
     (if (zero? n) #t (odd? (sub1 n))))
   (define (odd? n)
     (if (zero? n) #f (even? (sub1 n)))))
 
-(require eo)
-(even? •)
+(module main racket/base
+  (require eo)
+  (define top (even? •)))

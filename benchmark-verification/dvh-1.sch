@@ -1,8 +1,9 @@
-(module dvh-1
+(module dvh-1 racket/base
   (provide
-   [main ([z : (and/c num? (=/c 5))] . -> . (=/c z))])
+   (contract-out [main ([z : (and/c num? (=/c 5))] . -> . (=/c z))]))
 
   (define (main x) (- (+ x x) x)))
 
-(require dvh-1)
-(main •)
+(module main racket/base
+  (require dvh-1)
+  (define top (main •)))

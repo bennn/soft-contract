@@ -1,6 +1,7 @@
-(module filter-dep
+(module filter-dep racket/base
   (provide
-   [filter ([p? : (any . -> . any)] [xs : (listof any)] . -> . (listof (λ (x) (p? x))))])
+   (contract-out
+    [filter ([p? : (any . -> . any)] [xs : (listof any)] . -> . (listof (λ (x) (p? x))))]))
   (define (filter p? xs)
     (cond
       [(empty? xs) empty]
@@ -8,5 +9,6 @@
                   [zs (filter p? (cdr xs))])
               (if (p? x) (cons x zs) zs))])))
 
-(require filter-dep)
-(filter • •)
+(module main racket/base
+  (require filter-dep)
+  (define top (filter • •)))

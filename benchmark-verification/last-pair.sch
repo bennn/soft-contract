@@ -1,8 +1,8 @@
-(module lastpair
-  (provide
-   [lastpair (cons? . -> . cons?)])
+(module lastpair racket/base
+  (provide (contract-out [lastpair (cons? . -> . cons?)]))
   (define (lastpair x)
     (if (cons? (cdr x)) (lastpair (cdr x)) x)))
 
-(require lastpair)
-(lastpair (cons • •))
+(module main racket/base
+  (require lastpair)
+  (define top (lastpair (cons • •))))

@@ -1,7 +1,8 @@
-(module f
-  (provide [f (any . -> . num?)])
+(module f racket/base
+  (provide (contract-out [f (any . -> . num?)]))
   (define (f x)
     (if (num? x) (add1 x) 0)))
 
-(require f)
-(f •)
+(module main racket/base
+  (require f)
+  (define top (f •)))

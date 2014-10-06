@@ -1,10 +1,10 @@
-(module taut
-  (provide
-   [taut ([μ/c (X) (or/c bool? [bool? . -> . X])] . -> . bool?)])
+(module taut racket/base
+  (provide (contract-out [taut ([μ/c (X) (or/c bool? [bool? . -> . X])] . -> . bool?)]))
   (define (taut b)
     (cond
       [(bool? b) b]
       [else (and (taut (b #t)) (taut (b #f)))])))
 
-(require taut)
-(taut •)
+(module main racket/base
+  (require taut)
+  (define top (taut •)))

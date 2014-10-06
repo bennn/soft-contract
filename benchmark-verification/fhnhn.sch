@@ -1,19 +1,25 @@
-(module f
-  (provide [f ([x : (any . -> . int?)]
+(module f racket/base
+  (provide
+   (contract-out
+    [f ([x : (any . -> . int?)]
                . -> .
                ((and/c (any . -> . int?)
-                       (λ (y) (not (and (> (x #f) 0) (< (y #f) 0))))) . -> . int?))]))
+                       (λ (y) (not (and (> (x #f) 0) (< (y #f) 0))))) . -> . int?))])))
 
-(module h (provide [h (int? . -> . (any . -> . int?))])
+(module h racket/base
+  (provide (contract-out [h (int? . -> . (any . -> . int?))]))
   (define (h x) (λ (_) x)))
 
-(module g (provide [g (int? . -> . int?)])
+(module g racket/base
+  (provide (contract-out [g (int? . -> . int?)]))
   (require f h)
   (define (g n) ((f (h n)) (h n))))
 
-(module main (provide [main (int? . -> . int?)])
+(module main racket/base
+  (provide (contract-out [main (int? . -> . int?)]))
   (require g)
   (define (main m) (g m)))
 
-(require main)
-(main •)
+(module top racket/base
+  (require main)
+  (define top (main •)))

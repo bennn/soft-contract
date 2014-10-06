@@ -1,9 +1,11 @@
-(module append
+(module append racket/base
   (provide
-   [append ((listof any) (listof any) . -> . (listof any))])
+   (contract-out
+    [append ((listof any) (listof any) . -> . (listof any))]))
   (define (append xs ys)
     (if (empty? xs) ys
         (cons (car xs) (append (cdr xs) ys)))))
 
-(require append)
-(append • •)
+(module main racket/base
+  (require append)
+  (define top (append • •)))

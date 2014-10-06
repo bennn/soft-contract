@@ -1,10 +1,14 @@
-(module f
-  (provide [f ((or/c str? num?) . -> . num?)])
+(module f racket/base
+  (provide
+   (contract-out
+    [f ((or/c str? num?) . -> . num?)]))
   (define (f x)
     (if (num? x) (add1 x) (str-len x))))
 
-(module g
-  (provide [g (any . -> . num?)])
+(module g racket/base
+  (provide
+   (contract-out
+    [g (any . -> . num?)]))
   (require f)
   (define (g x)
     (if (let ([tmp (num? x)])
@@ -12,5 +16,6 @@
         (f x)
         0)))
 
-(require g)
-(g •)
+(module main racket/base
+  (require g)
+  (define top (g •)))

@@ -1,9 +1,10 @@
-(module l-zipunzip
+(module l-zipunzip racket/base
   (provide
-   [f ((int? int? . -> . int?) . -> . (int? int? . -> . int?))]
-   [unzip (int? (int? int? . -> . int?) . -> . int?)]
-   [zip (int? int? . -> . int?)]
-   [main (int? . -> . int?)])
+   (contract-out
+    [f ((int? int? . -> . int?) . -> . (int? int? . -> . int?))]
+    [unzip (int? (int? int? . -> . int?) . -> . int?)]
+    [zip (int? int? . -> . int?)]
+    [main (int? . -> . int?)]))
   
   (define (f g) (λ (x y) (g (+ x 1) (+ y 1))))
   (define (unzip x k)
@@ -17,5 +18,6 @@
   (define (main n)
     (unzip n zip)))
 
-(require l-zipunzip)
-(main •)
+(module main racket/base
+  (require l-zipunzip)
+  (define top (main •)))

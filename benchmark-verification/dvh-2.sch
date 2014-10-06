@@ -1,8 +1,9 @@
-(module dvh-2
+(module dvh-2 racket/base
   (provide
-   [main ([x : num?] . -> . ([y : (and/c num? (=/c x))] . -> . (=/c x)))])
+   (contract-out [main ([x : num?] . -> . ([y : (and/c num? (=/c x))] . -> . (=/c x)))]))
 
   (define (main x) (lambda (y) y)))
 
-(require dvh-2)
-((main •) •)
+(module main racket/base
+  (require dvh-2)
+  (define top ((main •) •)))

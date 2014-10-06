@@ -1,10 +1,10 @@
-(module opaque
-  (provide [n num?]))
+(module opaque racket/base
+  (provide (contract-out [n num?])))
 
-(module id
-  (provide
-   [f ([x : num?] . -> . (=/c x))])
+(module id racket/base
+  (provide (contract-out [f ([x : num?] . -> . (=/c x))]))
   (define (f x) x))
 
-(require opaque id)
-(f n)
+(module main racket/base
+  (require opaque id)
+  (define top (f n)))

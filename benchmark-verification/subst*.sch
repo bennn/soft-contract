@@ -1,6 +1,5 @@
-(module subst*
-  (provide
-   [subst* (any any any . -> . any)])
+(module subst* racket/base
+  (provide (contract-out [subst* (any any any . -> . any)]))
   (define (subst* new old t)
     (cond
       [(equal? old t) new]
@@ -8,5 +7,6 @@
                        (subst* new old (cdr t)))]
       [else t])))
 
-(require subst*)
-(subst* • • •)
+(module main racket/base
+  (require subst*)
+  (define top (subst* • • •)))

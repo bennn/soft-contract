@@ -1,6 +1,7 @@
-(module filter
+(module filter racket/base
   (provide
-   [filter ((any . -> . any) (listof any) . -> . (listof any))])
+   (contract-out
+    [filter ((any . -> . any) (listof any) . -> . (listof any))]))
   (define (filter p? xs)
     (cond
       [(empty? xs) empty]
@@ -8,5 +9,6 @@
                   [zs (filter p? (cdr xs))])
               (if (p? x) (cons x zs) zs))])))
 
-(require filter)
-(filter • •)
+(module main racket/base
+  (require filter)
+  (define top (filter • •)))

@@ -1,11 +1,12 @@
-(module rand (provide (rand (-> int?))))
+(module rand racket/base (provide (contract-out (rand (-> int?)))))
 
-(module fold-div
+(module fold-div racket/base
   (provide
-   [foldl ((real? real? . -> . real?) real? (listof real?) . -> . real?)]
-   [randpos (-> int?)]
-   [mk-list (int? . -> . (listof (and/c int? positive?)))]
-   [main (int? int? . -> . real?)])
+   (contract-out
+    [foldl ((real? real? . -> . real?) real? (listof real?) . -> . real?)]
+    [randpos (-> int?)]
+    [mk-list (int? . -> . (listof (and/c int? positive?)))]
+    [main (int? int? . -> . real?)]))
   (require rand)
   (define (foldl f z l)
     (if (empty? l) z (foldl f (f z (car l)) (cdr l))))
@@ -16,5 +17,6 @@
         (cons (randpos) (mk-list (- n 1)))))
   (define (main n m) (foldl / m (mk-list n))))
 
-(require fold-div)
-(main • •)
+(module main racket/base
+  (require fold-div)
+  (define top (main • •)))

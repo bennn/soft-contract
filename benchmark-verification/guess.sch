@@ -1,11 +1,12 @@
-(module IO
+(module IO racket/base
   (provide
-   [display (str? . -> . any)]
-   [error (str? . -> . any)]
-   [read (-> any)]))
+   (contract-out
+    [display (str? . -> . any)]
+    [error (str? . -> . any)]
+    [read (-> any)])))
 
-(module guess
-  (provide [guess (int? . -> . any)])
+(module guess racket/base
+  (provide (contract-out [guess (int? . -> . any)]))
   (require IO)
   (define (guess target)
     (let ([input (read)])
@@ -19,5 +20,6 @@
          (begin (display "Too high!\n") (guess target))]
         [else (begin (display "Correct!\n") 'done)]))))
 
-(require guess)
-(guess •)
+(module main racket/base
+  (require guess)
+  (define top (guess •)))

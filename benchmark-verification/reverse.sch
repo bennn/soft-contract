@@ -1,5 +1,5 @@
-(module main
-  (provide [main (int? . -> . int?)])
+(module main racket/base
+  (provide (contract-out [main (int? . -> . int?)]))
   (define (main len)
     (let [xs (mk-list len)]
       (if (not (= len 0)) (car (reverse xs empty)) 0)))
@@ -10,5 +10,6 @@
   (define (mk-list n)
     (if (= n 0) empty (cons n (mk-list (- n 1))))))
 
-(require main)
-(main •)
+(module top  racket/base
+  (require main)
+  (define top (main •)))

@@ -1,22 +1,24 @@
-(module image
+(module image racket/base
   (provide
-   [image/c any]
-   [circle (real? str? str? . -> . image/c)]
-   [empty-scene (real? real? . -> . image/c)]
-   [place-image (image/c real? real? image/c . -> . image/c)])
+   (contract-out
+    [image/c any]
+    [circle (real? str? str? . -> . image/c)]
+    [empty-scene (real? real? . -> . image/c)]
+    [place-image (image/c real? real? image/c . -> . image/c)]))
   (define image/c (λ (x) (image? x)))
   (define (image? x) •))
 
-(module data
+(module data racket/base
   (provide
-   [struct posn ([x real?] [y real?])]
-   [posn=? (POSN/C POSN/C . -> . bool?)]
-   [struct snake ([dir DIR/C] [segs (nelistof POSN/C)])]
-   [struct world ([snake SNAKE/C] [food POSN/C])]
-   [DIR/C any]
-   [POSN/C any]
-   [SNAKE/C any]
-   [WORLD/C any])
+   (contract-out
+    [struct posn ([x real?] [y real?])]
+    [posn=? (POSN/C POSN/C . -> . bool?)]
+    [struct snake ([dir DIR/C] [segs (nelistof POSN/C)])]
+    [struct world ([snake SNAKE/C] [food POSN/C])]
+    [DIR/C any]
+    [POSN/C any]
+    [SNAKE/C any]
+    [WORLD/C any]))
   
   (define DIR/C (one-of/c "up" "down" "left" "right"))
   (define POSN/C (struct/c posn real? real?))
@@ -31,16 +33,17 @@
   (struct snake (dir segs))
   (struct world (snake food)))
 
-(module const
+(module const racket/base
   (provide
-   [WORLD (-> WORLD/C)]
-   [BACKGROUND (-> image/c)]
-   [FOOD-IMAGE (-> image/c)]
-   [SEGMENT-IMAGE (-> image/c)]
-   [GRID-SIZE real?]
-   [BOARD-HEIGHT-PIXELS (-> real?)]
-   [BOARD-WIDTH real?]
-   [BOARD-HEIGHT real?])
+   (contract-out
+    [WORLD (-> WORLD/C)]
+    [BACKGROUND (-> image/c)]
+    [FOOD-IMAGE (-> image/c)]
+    [SEGMENT-IMAGE (-> image/c)]
+    [GRID-SIZE real?]
+    [BOARD-HEIGHT-PIXELS (-> real?)]
+    [BOARD-WIDTH real?]
+    [BOARD-HEIGHT real?]))
   (require image data)
   
   (define GRID-SIZE 30)
@@ -56,10 +59,11 @@
   (define (WORLD) (world (snake "right" (cons (posn 5 3) empty))
                          (posn 8 12))))
 
-(module collide
+(module collide racket/base
   (provide
-   [snake-wall-collide? (SNAKE/C . -> . bool?)]
-   [snake-self-collide? (SNAKE/C . -> . bool?)])
+   (contract-out
+    [snake-wall-collide? (SNAKE/C . -> . bool?)]
+    [snake-self-collide? (SNAKE/C . -> . bool?)]))
   (require data const)
   
   ;; snake-wall-collide? : Snake -> Boolean
@@ -85,9 +89,8 @@
           [else (or (posn=? (car segs) h)
                     (segs-self-collide? h (cdr segs)))])))
 
-(module cut-tail
-  (provide
-   [cut-tail ((nelistof POSN/C) . -> . (listof POSN/C))])
+(module cut-tail racket/base
+  (provide (contract-out [cut-tail ((nelistof POSN/C) . -> . (listof POSN/C))]))
   (require data)
   ;; NeSegs is one of:
   ;; - (cons Posn empty)
@@ -100,10 +103,11 @@
       (cond [(empty? r) empty]
             [else (cons (car segs) (cut-tail r))]))))
 
-(module motion-help
+(module motion-help racket/base
   (provide
-   [snake-slither (SNAKE/C . -> . SNAKE/C)]
-   [snake-grow (SNAKE/C . -> . SNAKE/C)])
+   (contract-out
+    [snake-slither (SNAKE/C . -> . SNAKE/C)]
+    [snake-grow (SNAKE/C . -> . SNAKE/C)]))
   (require data cut-tail)
   
   ;; next-head : Posn Direction -> Posn
@@ -132,10 +136,11 @@
                               d)
                    (snake-segs snk))))))
 
-(module motion
+(module motion racket/base
   (provide
-   [world-change-dir (WORLD/C DIR/C . -> . WORLD/C)]
-   [world->world (WORLD/C . -> . WORLD/C)])
+   (contract-out
+    [world-change-dir (WORLD/C DIR/C . -> . WORLD/C)]
+    [world->world (WORLD/C . -> . WORLD/C)]))
   (require data const motion-help)
   ;; world->world : World -> World
   (define (world->world w)
@@ -165,12 +170,13 @@
            #;(posn (random BOARD-WIDTH) (random BOARD-HEIGHT))
            (posn (- BOARD-WIDTH 1) (- BOARD-HEIGHT 1)))))
 
-(module handlers
+(module handlers racket/base
   ;; Movie handlers
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   (provide
-   [handle-key (WORLD/C str? . -> . WORLD/C)]
-   [game-over? (WORLD/C . -> . bool?)])
+   (contract-out
+    [handle-key (WORLD/C str? . -> . WORLD/C)]
+    [game-over? (WORLD/C . -> . bool?)]))
   (require data motion collide)
   
   ;; handle-key : World String -> World
@@ -185,15 +191,16 @@
   (define (game-over? w)
     (or (snake-wall-collide? (world-snake w))
         (snake-self-collide? (world-snake w)))))
-(module scenes
+(module scenes racket/base
   
   (provide
-   [world->scene (WORLD/C . -> . image/c)]
-   [food+scene (POSN/C image/c . -> . image/c)]
-   [place-image-on-grid (image/c real? real? image/c . -> . image/c)]
-   [snake+scene (SNAKE/C image/c . -> . image/c)]
-   [segments+scene ((listof POSN/C) image/c . -> . image/c)]
-   [segment+scene (POSN/C image/c . -> . image/c)])
+   (contract-out
+    [world->scene (WORLD/C . -> . image/c)]
+    [food+scene (POSN/C image/c . -> . image/c)]
+    [place-image-on-grid (image/c real? real? image/c . -> . image/c)]
+    [snake+scene (SNAKE/C image/c . -> . image/c)]
+    [segments+scene ((listof POSN/C) image/c . -> . image/c)]
+    [segment+scene (POSN/C image/c . -> . image/c)]))
   (require data const image)
   
   ;; world->scene : World -> Image
@@ -232,41 +239,43 @@
   (define (segment+scene seg scn)
     (place-image-on-grid (SEGMENT-IMAGE) (posn-x seg) (posn-y seg) scn)))
 
-(require image data const collide cut-tail motion-help motion handlers scenes)
-(amb
- (snake-wall-collide? •)
- (snake-self-collide? •)
- (WORLD)
- (BACKGROUND)
- (FOOD-IMAGE)
- (SEGMENT-IMAGE)
- GRID-SIZE
- (BOARD-HEIGHT-PIXELS)
- BOARD-WIDTH
- BOARD-HEIGHT
- (cut-tail •)
- (posn • •)
- (posn? •)
- (posn-x •)
- (posn-y •)
- (posn=? • •)
- (snake • •)
- (snake? •)
- (snake-dir •)
- (snake-segs •)
- (world • •)
- (world? •)
- (world-snake •)
- (world-food •)
- (game-over? •)
- (handle-key • •)
- (snake-slither •)
- (snake-grow •)
- (world->world •)
- (world-change-dir • •)
- (world->scene •)
- (food+scene • •)
- (place-image-on-grid • • • •)
- (snake+scene • •)
- (segments+scene • •)
- (segment+scene • •))
+(module main racket/base
+  (require image data const collide cut-tail motion-help motion handlers scenes)
+  (define top
+    (amb
+     (snake-wall-collide? •)
+     (snake-self-collide? •)
+     (WORLD)
+     (BACKGROUND)
+     (FOOD-IMAGE)
+     (SEGMENT-IMAGE)
+     GRID-SIZE
+     (BOARD-HEIGHT-PIXELS)
+     BOARD-WIDTH
+     BOARD-HEIGHT
+     (cut-tail •)
+     (posn • •)
+     (posn? •)
+     (posn-x •)
+     (posn-y •)
+     (posn=? • •)
+     (snake • •)
+     (snake? •)
+     (snake-dir •)
+     (snake-segs •)
+     (world • •)
+     (world? •)
+     (world-snake •)
+     (world-food •)
+     (game-over? •)
+     (handle-key • •)
+     (snake-slither •)
+     (snake-grow •)
+     (world->world •)
+     (world-change-dir • •)
+     (world->scene •)
+     (food+scene • •)
+     (place-image-on-grid • • • •)
+     (snake+scene • •)
+     (segments+scene • •)
+     (segment+scene • •))))

@@ -1,6 +1,7 @@
-(module onto
+(module onto racket/base
   (provide
-   [onto ([A : (any . -> . bool?)] . -> . ; poor man's quantifier
+   (contract-out
+    [onto ([A : (any . -> . bool?)] . -> . ; poor man's quantifier
          ([callbacks : (listof proc?)] . -> .
          ([f : (or/c false? str? (A . -> . any))] . -> .
          ([obj : (and/c
@@ -9,7 +10,7 @@
                    [(false? f) (any . -> . any)]
                    [(str? f) ([k : any] . -> . (if (equal? k f) (A . -> . any) any))]
                    [else any]))]
-          . -> . (listof proc?)))))])
+          . -> . (listof proc?)))))]))
   (define (onto A)
     (λ (callbacks)
       (λ (f)
@@ -18,5 +19,6 @@
               (let [cb (if (str? f) (obj f) f)]
                 (cons (λ () (cb obj)) callbacks))))))))
 
-(require onto)
-((((onto •) •) •) •)
+(module main racket/base
+  (require onto)
+  (define top ((((onto •) •) •) •)))

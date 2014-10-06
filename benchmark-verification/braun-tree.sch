@@ -1,7 +1,7 @@
-(module tree
+(module tree racket/base
   (provide
-   [braun-tree? (any . -> . bool?)]
-   [insert (braun-tree? any . -> . braun-tree?)])
+   (contract-out [braun-tree? (any . -> . bool?)]
+		 [insert (braun-tree? any . -> . braun-tree?)]))
   
   (struct node (v l r))
   
@@ -24,5 +24,6 @@
         (node (node-v bt) (insert (node-r bt) x) (node-l bt))
         (node x #f #f))))
 
-(require tree)
-(insert • •)
+(module main racket/base
+  (require tree)
+  (define top (insert • •)))

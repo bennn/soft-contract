@@ -1,7 +1,8 @@
-(module sat
+(module sat racket/base
   (provide
-   [sat-solve-7
-    ((bool? bool? bool? bool? bool? bool? bool? . -> . bool?) . -> . bool?)])
+   (contract-out
+    [sat-solve-7
+     ((bool? bool? bool? bool? bool? bool? bool? . -> . bool?) . -> . bool?)]))
   
   (define (try f)
     (or (f #t) (f #f)))
@@ -15,9 +16,9 @@
                                        (try (λ (n6)
                                               (try (λ (n7)
                                                      (p n1 n2 n3 n4 n5 n6 n7)))))))))))))))))
-(module φ
-  (provide
-   [φ (bool? bool? bool? bool? bool? bool? bool? . -> . bool?)]))
+(module φ racket/base
+  (provide (contract-out [φ (bool? bool? bool? bool? bool? bool? bool? . -> . bool?)])))
 
-(require sat φ)
-(sat-solve-7 φ)
+(module main racket/base
+  (require sat φ)
+  (sat-solve-7 φ))

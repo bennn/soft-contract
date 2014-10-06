@@ -1,40 +1,43 @@
-(module image
+(module image racket/base
   (provide
-   [image? (any . -> . bool?)]
-   [empty-scene (real? real? . -> . image?)]
-   [place-image (image? real? real? image? . -> . image?)]
-   [circle (real? str? str? . -> . image?)])
+   (contract-out
+    [image? (any . -> . bool?)]
+    [empty-scene (real? real? . -> . image?)]
+    [place-image (image? real? real? image? . -> . image?)]
+    [circle (real? str? str? . -> . image?)]))
   (struct image (impl)))
 
-(module math
+(module math racket/base
   (provide
-   [min (real? real? . -> . real?)]
-   [max (real? real? . -> . real?)]
-   [abs (real? . -> . real?)]
-   [sqrt (real? . -> . real?)]
-   [sqr (real? . -> . real?)])
+   (contract-out
+    [min (real? real? . -> . real?)]
+    [max (real? real? . -> . real?)]
+    [abs (real? . -> . real?)]
+    [sqrt (real? . -> . real?)]
+    [sqr (real? . -> . real?)]))
   (define (min x y) (if (<= x y) x y))
   (define (max x y) (if (>= x y) x y))
   (define (abs x) (if (>= x 0) x (- 0 x)))
   (define (sqr x) (* x x)))
 
-(module zombie
+(module zombie racket/base
   (provide
-   [posn/c any]
-   [player/c any]
-   [zombie/c any]
-   [zombies/c any]
-   [horde/c any]
-   [world/c any]
-   
-   [new-world (player/c posn/c horde/c . -> . world/c)]
-   [new-player (posn/c . -> . player/c)]
-   [new-horde (zombies/c zombies/c . -> . horde/c)]
-   [new-cons-zombies (zombie/c zombies/c . -> . zombies/c)]
-   [new-mt-zombies (-> zombies/c)]
-   [new-zombie (posn/c . -> . zombie/c)]
-   [new-posn (real? real? . -> . posn/c)]
-   [w0 world/c])
+   (contract-out
+    [posn/c any]
+    [player/c any]
+    [zombie/c any]
+    [zombies/c any]
+    [horde/c any]
+    [world/c any]
+    
+    [new-world (player/c posn/c horde/c . -> . world/c)]
+    [new-player (posn/c . -> . player/c)]
+    [new-horde (zombies/c zombies/c . -> . horde/c)]
+    [new-cons-zombies (zombie/c zombies/c . -> . zombies/c)]
+    [new-mt-zombies (-> zombies/c)]
+    [new-zombie (posn/c . -> . zombie/c)]
+    [new-posn (real? real? . -> . posn/c)]
+    [w0 world/c]))
   (require image math)
   
   (define WIDTH 400)
@@ -258,12 +261,14 @@
        (new-zombie (new-posn 200 200))
        (new-mt-zombies))))))
 
-(require zombie)
+(module main racket/base
+  (require zombie)
 
-(amb (• new-posn)
-     (• new-player)
-     (• new-zombie)
-     (• new-cons-zombies)
-     (• new-mt-zombies)
-     (• new-horde)
-     (• new-world))
+  (define top
+    (amb (• new-posn)
+	 (• new-player)
+	 (• new-zombie)
+	 (• new-cons-zombies)
+	 (• new-mt-zombies)
+	 (• new-horde)
+	 (• new-world))))

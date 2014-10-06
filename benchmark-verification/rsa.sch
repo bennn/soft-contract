@@ -1,18 +1,19 @@
-(module keygen
+(module keygen racket/base
   (require prime?)
-  (provide [keygen (any . -> . (λ (x) (prime? x)))]))
+  (provide (contract-out [keygen (any . -> . (λ (x) (prime? x)))])))
 
-(module rsa
+(module rsa racket/base
   (require prime?)
-  (provide [rsa ((λ (x) (prime? x)) any . -> . any)]))
+  (provide (contract-out [rsa ((λ (x) (prime? x)) any . -> . any)])))
 
-(module prime?
-  (provide [prime? (any . -> . any)]))
+(module prime? racket/base
+  (provide (contract-out [prime? (any . -> . any)])))
 
-(module enc
-  (provide [enc (any . -> . any)])
+(module enc racket/base
+  (provide (contract-out [enc (any . -> . any)]))
   (require rsa keygen)
   (define (enc x) (rsa (keygen #t) x)))
 
-(require enc)
-(enc •)
+(module main racket/base
+  (require enc)
+  (define top (enc •)))

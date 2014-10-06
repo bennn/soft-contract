@@ -1,16 +1,17 @@
-(module data
+(module data racket/base
   (provide
-   [struct block ([x real?] [y real?] [color COLOR/C])]
-   [struct posn ([x real?] [y real?])]
-   [struct tetra ([center POSN/C] [blocks BSET/C])]
-   [struct world ([tetra TETRA/C] [blocks BSET/C])]
-   [posn=? (POSN/C POSN/C . -> . bool?)]
-   [COLOR/C any]
-   [POSN/C any]
-   [BLOCK/C any]
-   [TETRA/C any]
-   [WORLD/C any]
-   [BSET/C any])
+   (contract-out
+    [struct block ([x real?] [y real?] [color COLOR/C])]
+    [struct posn ([x real?] [y real?])]
+    [struct tetra ([center POSN/C] [blocks BSET/C])]
+    [struct world ([tetra TETRA/C] [blocks BSET/C])]
+    [posn=? (POSN/C POSN/C . -> . bool?)]
+    [COLOR/C any]
+    [POSN/C any]
+    [BLOCK/C any]
+    [TETRA/C any]
+    [WORLD/C any]
+    [BSET/C any]))
   (define BSET/C (listof BLOCK/C))
   (define COLOR/C symbol?)
   (define POSN/C (struct/c posn real? real?))
@@ -27,20 +28,23 @@
     (and (= (posn-x p1) (posn-x p2))
          (= (posn-y p1) (posn-y p2)))))
 
-(module consts
-  (provide [block-size int?]
-           [board-width int?]
-           [board-height int?])
+(module consts racket/base
+  (provide
+   (contract-out
+    [block-size int?]
+    [board-width int?]
+    [board-height int?]))
   (define block-size 20)
   (define board-height 20)
   (define board-width 10))
 
-(module block
+(module block racket/base
   (provide
-   [block-rotate-ccw (POSN/C BLOCK/C . -> . BLOCK/C)]
-   [block-rotate-cw (POSN/C BLOCK/C . -> . BLOCK/C)]
-   [block=? (BLOCK/C BLOCK/C . -> . bool?)]
-   [block-move (real? real? BLOCK/C . -> . BLOCK/C)])
+   (contract-out
+    [block-rotate-ccw (POSN/C BLOCK/C . -> . BLOCK/C)]
+    [block-rotate-cw (POSN/C BLOCK/C . -> . BLOCK/C)]
+    [block=? (BLOCK/C BLOCK/C . -> . bool?)]
+    [block-move (real? real? BLOCK/C . -> . BLOCK/C)]))
   (require data)
   
   ;; block=? : Block Block -> Boolean
@@ -67,39 +71,41 @@
   (define (block-rotate-cw c b)
     (block-rotate-ccw c (block-rotate-ccw c (block-rotate-ccw c b)))))
 
-(module list-fun
+(module list-fun racket/base
   (provide
-   [max (real? real? . -> . real?)]
-   [min (real? real? . -> . real?)]
-   [ormap ([BLOCK/C . -> . bool?] (listof any) . -> . bool?)]
-   [andmap ([BLOCK/C . -> . bool?] (listof any) . -> . bool?)]
-   [map ([BLOCK/C . -> . BLOCK/C] BSET/C . -> . BSET/C)]
-   [filter ([BLOCK/C . -> . bool?] BSET/C . -> . BSET/C)]
-   [append (BSET/C BSET/C . -> . BSET/C)]
-   [length ((listof any) . -> . int?)]
-   [foldr ([BLOCK/C BSET/C . -> . BSET/C] BSET/C BSET/C . -> . BSET/C)]
-   [foldr-i ([BLOCK/C image? . -> . image?] image? BSET/C . -> . image?)]
-   [foldr-n ((BLOCK/C real? . -> . real?) real? BSET/C . -> . real?)])
+   (contract-out
+    [max (real? real? . -> . real?)]
+    [min (real? real? . -> . real?)]
+    [ormap ([BLOCK/C . -> . bool?] (listof any) . -> . bool?)]
+    [andmap ([BLOCK/C . -> . bool?] (listof any) . -> . bool?)]
+    [map ([BLOCK/C . -> . BLOCK/C] BSET/C . -> . BSET/C)]
+    [filter ([BLOCK/C . -> . bool?] BSET/C . -> . BSET/C)]
+    [append (BSET/C BSET/C . -> . BSET/C)]
+    [length ((listof any) . -> . int?)]
+    [foldr ([BLOCK/C BSET/C . -> . BSET/C] BSET/C BSET/C . -> . BSET/C)]
+    [foldr-i ([BLOCK/C image? . -> . image?] image? BSET/C . -> . image?)]
+    [foldr-n ((BLOCK/C real? . -> . real?) real? BSET/C . -> . real?)]))
   (require image data))
 
-(module bset
+(module bset racket/base
   (provide
-   [blocks-contains? (BSET/C BLOCK/C . -> . bool?)]
-   [blocks=? (BSET/C BSET/C . -> . bool?)]
-   [blocks-subset? (BSET/C BSET/C . -> . bool?)]
-   [blocks-intersect (BSET/C BSET/C . -> . BSET/C)]
-   [blocks-count (BSET/C . -> . real?)]
-   [blocks-overflow? (BSET/C . -> . bool?)]
-   [blocks-move (real? real? BSET/C . -> . BSET/C)]
-   [blocks-rotate-cw (POSN/C BSET/C . -> . BSET/C)]
-   [blocks-rotate-ccw (POSN/C BSET/C . -> . BSET/C)]
-   [blocks-change-color (BSET/C COLOR/C . -> . BSET/C)]
-   [blocks-row (BSET/C real? . -> . BSET/C)]
-   [full-row? (BSET/C real? . -> . bool?)]
-   [blocks-union (BSET/C BSET/C . -> . BSET/C)]
-   [blocks-max-x (BSET/C . -> . real?)]
-   [blocks-min-x (BSET/C . -> . real?)]
-   [blocks-max-y (BSET/C . -> . real?)])
+   (contract-out
+    [blocks-contains? (BSET/C BLOCK/C . -> . bool?)]
+    [blocks=? (BSET/C BSET/C . -> . bool?)]
+    [blocks-subset? (BSET/C BSET/C . -> . bool?)]
+    [blocks-intersect (BSET/C BSET/C . -> . BSET/C)]
+    [blocks-count (BSET/C . -> . real?)]
+    [blocks-overflow? (BSET/C . -> . bool?)]
+    [blocks-move (real? real? BSET/C . -> . BSET/C)]
+    [blocks-rotate-cw (POSN/C BSET/C . -> . BSET/C)]
+    [blocks-rotate-ccw (POSN/C BSET/C . -> . BSET/C)]
+    [blocks-change-color (BSET/C COLOR/C . -> . BSET/C)]
+    [blocks-row (BSET/C real? . -> . BSET/C)]
+    [full-row? (BSET/C real? . -> . bool?)]
+    [blocks-union (BSET/C BSET/C . -> . BSET/C)]
+    [blocks-max-x (BSET/C . -> . real?)]
+    [blocks-min-x (BSET/C . -> . real?)]
+    [blocks-max-y (BSET/C . -> . real?)]))
   (require data block list-fun consts)
   
   ;; blocks-contains? : BSet Block -> Boolean
@@ -190,9 +196,8 @@
   (define (blocks-max-x bs)
     (foldr-n (λ (b n) (max (block-x b) n)) 0 bs)))
 
-(module elim
-  (provide
-   [eliminate-full-rows (BSET/C . -> . BSET/C)])
+(module elim racket/base
+  (provide (contract-out [eliminate-full-rows (BSET/C . -> . BSET/C)]))
   (require data bset consts)
   ;; eliminate-full-rows : BSet -> BSet
   ;; Eliminate all full rows and shift down appropriately.
@@ -205,15 +210,16 @@
           [else (blocks-union (elim-row bs (sub1 i) offset)
                               (blocks-move 0 offset (blocks-row bs i)))])))
 
-(module tetras
+(module tetras racket/base
   (provide ;[tetras (listof TETRA/C)]
-   [tetra-move (int? int? TETRA/C . -> . TETRA/C)]
-   [tetra-rotate-ccw (TETRA/C . -> . TETRA/C)]
-   [tetra-rotate-cw (TETRA/C . -> . TETRA/C)]
-   [tetra-overlaps-blocks? (TETRA/C BSET/C . -> . bool?)]
-   [build-tetra-blocks (COLOR/C real? real? int? int? int? int? int? int? int? int?
-                                . -> .  TETRA/C)]
-   [tetra-change-color (TETRA/C COLOR/C . -> . TETRA/C)])
+   (contract-out
+    [tetra-move (int? int? TETRA/C . -> . TETRA/C)]
+    [tetra-rotate-ccw (TETRA/C . -> . TETRA/C)]
+    [tetra-rotate-cw (TETRA/C . -> . TETRA/C)]
+    [tetra-overlaps-blocks? (TETRA/C BSET/C . -> . bool?)]
+    [build-tetra-blocks (COLOR/C real? real? int? int? int? int? int? int? int? int?
+				 . -> .  TETRA/C)]
+    [tetra-change-color (TETRA/C COLOR/C . -> . TETRA/C)]))
   (require bset data consts block)
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; Tetras
@@ -258,10 +264,12 @@
                              (block x3 y3 color)
                              (block x4 y4 color))))))
 
-(module world
-  (provide [world-key-move (WORLD/C str? . -> . WORLD/C)]
-           [next-world (WORLD/C . -> . WORLD/C)]
-           [ghost-blocks (WORLD/C . -> . BSET/C)])
+(module world racket/base
+  (provide
+   (contract-out
+    [world-key-move (WORLD/C str? . -> . WORLD/C)]
+    [next-world (WORLD/C . -> . WORLD/C)]
+    [ghost-blocks (WORLD/C . -> . BSET/C)]))
   (require data bset block tetras aux elim consts)
   
   ;; touchdown : World -> World
@@ -349,30 +357,33 @@
           [(equal? k "s") (world-rotate-cw w)]
           [else w])))
 
-(module image
+(module image racket/base
   (provide
-   [image? (any . -> . bool?)]
-   [overlay (image? image? . -> . image?)]
-   [circle (real? real? str? . -> . image?)]
-   [rectangle (real? real? COLOR/C COLOR/C . -> . image?)]
-   [place-image (image? real? real? image? . -> . image?)]
-   [empty-scene (real? real? . -> . image?)])
+   (contract-out
+    [image? (any . -> . bool?)]
+    [overlay (image? image? . -> . image?)]
+    [circle (real? real? str? . -> . image?)]
+    [rectangle (real? real? COLOR/C COLOR/C . -> . image?)]
+    [place-image (image? real? real? image? . -> . image?)]
+    [empty-scene (real? real? . -> . image?)]))
   (require data)
   (struct image (impl)))
 
-(module aux
+(module aux racket/base
   (require data)
   (provide
-   [list-pick-random ((listof TETRA/C) . -> . TETRA/C)]
-   [neg-1 int?] ;; ha!
-   [tetras (listof TETRA/C)]))
+   (contract-out
+    [list-pick-random ((listof TETRA/C) . -> . TETRA/C)]
+    [neg-1 int?] ;; ha!
+    [tetras (listof TETRA/C)])))
 
-(module visual
+(module visual racket/base
   (provide
-   [world->image (WORLD/C . -> . image?)]
-   [blocks->image (BSET/C . -> . image?)]
-   [block->image (BLOCK/C . -> . image?)]
-   [place-block (BLOCK/C image? . -> . image?)])
+   (contract-out
+    [world->image (WORLD/C . -> . image?)]
+    [blocks->image (BSET/C . -> . image?)]
+    [block->image (BLOCK/C . -> . image?)]
+    [place-block (BLOCK/C image? . -> . image?)]))
   (require image data consts world list-fun aux)
   
   ;; Visualize whirled peas
@@ -411,46 +422,48 @@
   (define (world0)
     (world (list-pick-random tetras) #f)))
 
-(require block bset data elim tetras visual image world)
-(amb
- (block-rotate-cw • •)
- (block-rotate-ccw • •)
- (block=? • •)
- (block-move • • •)
- (blocks-contains? • •)
- (blocks-subset? • •)
- (blocks=? • •)
- (blocks-count •)
- (blocks-intersect • •)
- (blocks-overflow? •)
- (blocks-move • • •)
- (blocks-rotate-ccw • •)
- (blocks-rotate-cw • •)
- (blocks-change-color • •)
- (full-row? • •)
- (blocks-row • •)
- (blocks-union • •)
- (blocks-max-x •)
- (blocks-max-y •)
- (blocks-min-x •)
- (world-blocks •)
- (world-tetra •)
- (world • •)
- (world? •)
- (tetra • •)
- (tetra-center •)
- (tetra-blocks •)
- (tetra? •)
- (block • • •)
- (block? •)
- (block-color •)
- (block-x •)
- (block-y •)
- (eliminate-full-rows •)
- (tetra-overlaps-blocks? • •)
- (build-tetra-blocks • • • • • • • • • • •) 
- (world->image •)
- (blocks->image •)
- (world-key-move • •)
- (next-world •)
- (ghost-blocks •))
+(module main racket/base
+  (require block bset data elim tetras visual image world)
+  (define top
+    (amb
+     (block-rotate-cw • •)
+     (block-rotate-ccw • •)
+     (block=? • •)
+     (block-move • • •)
+     (blocks-contains? • •)
+     (blocks-subset? • •)
+     (blocks=? • •)
+     (blocks-count •)
+     (blocks-intersect • •)
+     (blocks-overflow? •)
+     (blocks-move • • •)
+     (blocks-rotate-ccw • •)
+     (blocks-rotate-cw • •)
+     (blocks-change-color • •)
+     (full-row? • •)
+     (blocks-row • •)
+     (blocks-union • •)
+     (blocks-max-x •)
+     (blocks-max-y •)
+     (blocks-min-x •)
+     (world-blocks •)
+     (world-tetra •)
+     (world • •)
+     (world? •)
+     (tetra • •)
+     (tetra-center •)
+     (tetra-blocks •)
+     (tetra? •)
+     (block • • •)
+     (block? •)
+     (block-color •)
+     (block-x •)
+     (block-y •)
+     (eliminate-full-rows •)
+     (tetra-overlaps-blocks? • •)
+     (build-tetra-blocks • • • • • • • • • • •) 
+     (world->image •)
+     (blocks->image •)
+     (world-key-move • •)
+     (next-world •)
+     (ghost-blocks •))))

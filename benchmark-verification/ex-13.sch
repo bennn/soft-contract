@@ -1,9 +1,11 @@
-(module ex-13
-  (provide [f (any any . -> . true?)])
+(module ex-13 racket/base
+  (provide (contract-out [f (any any . -> . true?)]))
   (define (f x y)
     (cond
       [(and (num? x) (str? y)) (and (num? x) (str? y))]
       [(num? x) (and (num? x) (not (str? y)))]
       [else (not (num? x))])))
-(require ex-13)
-(f • •)
+
+(module main racket/base
+  (require ex-13)
+  (define top (f • •)))

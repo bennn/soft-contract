@@ -1,221 +1,160 @@
-#lang typed/racket
-(require "utils.rkt")
+#lang typed/racket/base
 (provide (all-defined-out))
+(require racket/match racket/set "abbrevs.rkt" "lib.rkt")
 
-(define-type Sym^3 (List Sym Sym Sym))
+;; Module name
+(define-type L Symbol)
+(define-type L³ (List Symbol Symbol Symbol))
 
-;; prefixing types with dots just so i can use 1-letter variables without shadowing them
+;; Current base types
+(define-type Base (U ℂ 𝔹 String Symbol))
 
-;; program and module
-(struct: .p ([modules : .m*] [main : .e]) #:transparent)
-(struct: .m ([order : (Listof Sym)] [defs : (Map Sym (Pairof .e (U #f .e)))]) #:transparent)
-(struct: .m* ([order : (Listof Sym)] [modules : (Map Sym .m)]) #:transparent)
+(define-type Struct-Tag Symbol #|TODO|#)
 
-;; expression
-(define-data (.e)
-  (subset: (.v)
-    (.λ [arity : Int] [body : .e] [var? : Bool])    
-    (.•)
-    (subset: (.prim)
-      (.b [unboxed : (U Num Bool String Sym)])
-      (subset: (.o)
-        (subset: (.o1)
-          (subset: (.pred)
-            (.st-p [tag : Sym] [arity : Int])
-            (.num?) (.real?) (.int?) (.true?) (.false?) (.bool?) (.str?) (.symbol?) (.proc?))
-          (.st-ac [tag : Sym] [arity : Int] [index : Int])
-          (.add1) (.sub1) (.str-len) (.sqrt))
-        (subset: (.o2)
-          (.equal?) (.=) (.>) (.<) (.≥) (.≤) (.+) (.-) (.*) (./)
-          (.arity=?) (.arity≥?) (.arity-includes?))
-        (.st-mk [tag : Sym] [arity : Int]))))
-  (.x [sd : Int]) ; static distance
-  (.ref [name : Sym] [in : Sym] [ctx : Sym])
-  (.@ [f : .e] [xs : (Listof .e)] [ctx : Sym])
-  (.@-havoc [x : .x]) ; hack for havoc
-  #;(.apply [f : .e] [xs : .e] [ctx : Sym])
-  (.if [i : .e] [t : .e] [e : .e])
-  (.amb [e* : (Setof .e)])
-  ; contract stuff
-  (.μ/c [x : Sym] [c : .e])
-  (.λ/c [xs : (Listof .e)] [cy : .e] [var? : Bool])
-  (.x/c [x : Sym])
-  (.struct/c [tag : Sym] [fields : (Listof .e)])
-  #;(.and/c [l : .e] [r : .e])
-  #;(.or/c [l : .e] [r : .e])
-  #;(.¬/c [c : .e]))
+;; I prefix types with `-` just so I can use 1-char variable without shadowing types.
 
-(: FV : (case→ [.e → (Setof Int)]
-               [.e Int → (Setof Int)]))
-(define (FV e [d 0])
-  (match e
-    [(.x sd) (if (>= sd d) {set (- sd d)} ∅)]
-    [(.λ n e _) (FV e (+ d n))]
-    [(.@ f xs _) (for/fold ([FVs (FV f d)]) ([x xs])
-                   (set-union FVs (FV x d)))]
-    [(.@-havoc x) (FV x d)]
-    #;[(.apply f xs _) (set-union (FV f d) (FV xs d))]
-    [(.if e e1 e2) (set-union (FV e d) (FV e1 d) (FV e2 d))]
-    [(.amb e*) (for/fold: ([FVs : (Setof Int) ∅]) ([e e*])
-                 (set-union FVs (FV e d)))]
-    [(.μ/c _ e) (FV e d)]
-    [(.λ/c cx cy _) (for/fold ([FVs (FV cy (+ d (length cx)))]) ([c cx])
-                      (set-union FVs (FV c d)))]
-    [(.struct/c _ cs) (for/fold: ([FVs : (Setof Int) ∅]) ([c cs])
-                        (set-union FVs (FV c d)))]
-    [_ ∅]))
+;; A program is a sequence of module definitions
+(define-type -p (NeListof -m))
 
-(: closed? : .e → Bool)
-(define (closed? e) (set-empty? (FV e)))
+;; A module:
+;  - exports names wrapped in contracts
+;  - requires names from other modules
+;  - defines structs and values
+(struct -m ([name : L]
+            [provides : (Listof (Pairof Symbol -e))]
+            [requires : (Listof (Pairof L (Setof Symbol)))]
+            [defines : (NeListof (Pairof Symbol -e))])
+        #:transparent)
 
-(: checks# : (Rec X (U .e .p .m (Listof X))) → Int)
-(define checks#
+;; Annotated terms
+(define-data -e
+  (subset: -v
+    (struct -λ [xs : (Listof Symbol)] [body : -e])
+    '●
+    (subset: -base
+      (struct -b [unboxed : Base])
+      (subset: -o
+        (subset: -o¹
+          (subset: -pred
+            (struct -struct/pred [tag : Struct-Tag] [arity : ℕ])
+            'number? 'real? 'integer? 'false? 'boolean? 'string? 'symbol? 'procedure? 'box? 'vector?
+            'zero?)
+          (struct -struct/acc [tag : Struct-Tag] [arity : ℕ] [index : ℕ])
+          (subset: -o/ℂℂ 'add1 'sub1)
+          'string-length 'vector-length 'sqrt
+          'procedure-arity)
+        (subset: -o²
+                 'equal? '=
+          (subset: -o/ℂℂℂ '+ '- '* '/)
+          (subset: -o/ℝℝ𝔹 '> '< '≥ '≤))
+        (subset: -o³ 'vector-set!)
+        (struct -struct/cons [tag : Struct-Tag] [arity : ℕ])))
+    (struct -rec/c [x : -e]))
+  (struct -x [name : Symbol])
+  (struct -ref [ctx : L] [name : Symbol] [in : L])
+  (struct -@ [ctx : L] [f : -e] [xs : (Listof -e)])
+  (struct -@/havoc [x : -x]) ; Hack for havoc
+  (struct -if [i : -e] [t : -e] [e : -e])
+  (struct -let [bindings : (Listof (Pairof Symbol -e))] [body : -e])
+  (struct -amb [es : (Setof -e)])
+  ; Contract stuff
+  #;(-μ/c [x : Symbol] [c : -e])
+  (struct -λ/c [dom : (Listof (Pairof Symbol -e))] [rng : -e])
+  (struct -struct/c [tag : Struct-Tag] [fields : (Listof -e)])
+  #;(-and/c [l : -e] [r : -e])
+  #;(-or/c [l : -e] [r : -e])
+  #;(-not/c [c : -e])
+  ; Box stuff
+  (struct -box [unboxed : -e])
+  (struct -unbox [ctx : L] [box : -e])
+  (struct -set-box! [ctx : L] [box : -e] [val : -e])
+  ; Vector stuff
+  (struct -vector [fields : (Listof -e)])
+  (struct -vector-ref [ctx : L] [vec : -e] [index : -e])
+  (struct -vector-set! [ctx : L] [vec : -e] [index : -e] [val : -e]))
+
+;; Interned constructors
+(define/memoeq (+b [b : Base]) : -b (-b b))
+(define/memoeq (+x [x : (U ℕ Symbol)]) : -x
+  (cond ; ℕ case is for internal use, assume no overlap with user's
+   [(integer? x) (-x (genₓ x))]
+   [else (-x x)]))
+
+;; Generate internal symbol for nth index
+(define/memoeq (genₓ [n : ℕ]) : Symbol
+  (string->symbol (format "⋆~a" (subscript n))))
+
+(: FV : (Rec X (U -e (Listof X))) → (Setof Symbol))
+(define FV
   (match-lambda
-    [(? list? es) (for/sum ([e es]) (checks# e))]
-    [(.p (.m* _ ms) e) (+ (ann (for/sum ([(l mi) (in-hash ms)]
-                                         #:unless (equal? l '☠))
-                                 (checks# mi)) Int)
-                          (checks# e))]
-    [(.m _ defs) (for/sum ([(l d) (in-hash defs)])
-                   (match-let ([(cons e c) d])
-                     (+ (checks# e) (match c [(? .e? c) (checks# c)] [_ 0]))))]
-    [(.λ _ e _) (checks# e)]
-    [(.@ f xs _) (+ 1 (checks# f) (checks# xs))]
-    [(.@-havoc x) 1]
-    #;[(.apply f xs _) (+ 1 (checks# f) (checks# xs))]
-    [(.if e e1 e2) (+ (checks# e) (checks# e1) (checks# e2))]
-    [(.amb e*) (for/sum ([e e*]) (checks# e))]
-    [(.μ/c _ e) (checks# e)]
-    [(.λ/c cx cy _) (+ (checks# cx) (checks# cy))]
-    [(.struct/c _ cs) (checks# cs)]
-    [(.pred) 0]
-    [(.o) 1] ; FIXME: depends on arity
-    [_ 0]))
+   [(? list? l) (for/union-setof: Symbol ([e l]) (FV e))]
+   [(-λ xs e) (set-remove/l (FV e) xs)]
+   [(-rec/c e) (FV e)]
+   [(-x x) {set x}]
+   [(-@ _ f xs) (set-union (FV f) (FV xs))]
+   [(-if e e₁ e₂) (set-union (FV e) (FV e₁) (FV e₂))]
+   [(-let xes e) (let-values ([(xs es) (unzip xes)])
+                   (set-union (FV es) (set-remove/l (FV e) xs)))]
+   [(-amb es) (for/union-setof: Symbol ([e es]) (FV e))]
+   [(-λ/c cxs d) (let-values ([(xs cs) (unzip cxs)])
+                   (set-union (FV cs) (set-remove/l (FV d) xs)))]
+   [(-struct/c _ cs) (FV cs)]
+   #;[(-and/c l r) (set-union (FV l) (FV r))]
+   #;[(-or/c l r) (set-union (FV l) (FV r))]
+   #;[(-not/c c) (FV c)]
+   [(-box e) (FV e)]
+   [(-unbox _ e) (FV e)]
+   [(-set-box! _ b v) (set-union (FV b) (FV v))]
+   [(-vector (list e ...)) (FV e)]
+   [(-vector-ref _ v i) (set-union (FV v) (FV i))]
+   [(-vector-set! _ v i e) (set-union (FV v) (FV i) (FV e))]
+   [(? -base?) ∅]))
 
-;; frequently used constants
-(define • (.•))
-(define .tt (.b #t))
-(define .ff (.b #f))
-(define .any/c (.λ 1 .tt #f))
-(define .none/c (.λ 1 .ff #f))
-(define .empty/c (.st-p 'empty 0))
-(define .false/c (.false?))
-(define .bool/c (.bool?))
-(define .car (.st-ac 'cons 2 0))
-(define .cdr (.st-ac 'cons 2 1))
-(define .zero (.b 0))
-(define .one (.b 1))
+;; Reused terms
+(define/*
+  [-tt (+b #t)]
+  [-ff (+b #f)]
+  [-any/c (-λ `(x) -tt)]
+  [-none/c (-λ `(x) -ff)]
+  [-empty (-@ 'Λ (-struct/cons 'empty 0) (list))] ; hack
+  [-empty/c (-struct/pred 'empty 0)]
+  [-cons (-struct/cons 'cons 2)]
+  [-car (-struct/acc 'cons 2 0)]
+  [-cdr (-struct/acc 'cons 2 1)]
+  [-cons? (-struct/pred 'cons 2)]
+  [-zero (+b 0)]
+  [-one (+b 1)]
+  [-pred/c (-λ/c (list (cons '•₀ -any/c)) 'boolean?)])
 
-(: .cons/c : .e .e → .e)
-(define (.cons/c c d) (.struct/c 'cons (list c d)))
+(define (-cons/c [c : -e] [d : -e])
+  (-struct/c 'cons (list c d)))
 
-(:* [.or/c .and/c] : Sym (Listof .e) → .e)
-(define (.or/c l e*)
-  (match e*
-    ['() .none/c]
-    [(list c) c]
-    [(cons c cr) (.@ (.st-mk 'or/c 2) (list c (.or/c l cr)) l)]))
-(define (.and/c l e*)
-  (match e*
-    ['() .any/c]
-    [(list c ) c]
-    [(cons c cr) (.@ (.st-mk 'and/c 2) (list c (.and/c l cr)) l)]))
-(: .not/c : Sym .e → .e)
-(define (.not/c l c)
-  (.@ (.st-mk '¬/c 1) (list c) l))
+(: ¬l : L³ → L³)
+(define ¬l (match-lambda [(list l₊ l₋ lₒ) (list l₋ l₊ lₒ)]))
 
-(: prim : (U Sym Num String Bool) → (U #f .e))
-(define prim
-  (memoize
-   #:eq? #t
-   (match-lambda
-     ['add1 (.add1)] ['sub1 (.sub1)] ['sqrt (.sqrt)] ['+ (.+)] ['- (.-)] ['* (.*)] ['/ (./)]
-     ['str-len (.str-len)]
-     ['num? (.num?)] ['real? (.real?)] ['int? (.int?)]
-     ['true? (.true?)] [(or 'false? 'not) (.false?)] ['bool? (.bool?)]
-     ['str? (.str?)] ['symbol? (.symbol?)] ['proc? (.proc?)]     
-     ['equal? (.equal?)]
-     [(or 'any 'any/c) .any/c]
-     [(or 'none 'none/c) .none/c]
-     ['= (.=)]
-     ['< (.<)]
-     ['> (.>)]
-     [(or '>= '≥) (.≥)]
-     [(or '<= '≤) (.≤)]
-     ['arity=? (.arity=?)]
-     [(or 'arity>=? 'arity≥?) (.arity≥?)]
-     ['arity-includes? (.arity-includes?)]
-     ['cons? (.st-p 'cons 2)]
-     ['cons (.st-mk 'cons 2)]
-     ['car .car]
-     ['cdr .cdr]
-     ['empty (.@ (.st-mk 'empty 0) empty 'Λ)]
-     ['empty? .empty/c]
-     [(? num? x) (.b x)]
-     [#f .ff]
-     [#t .tt]
-     [(? str? x) (.b x)]
-     #;[`(quote ,(? sym? x)) (.b x)]
-     [_ #f])))
-
-(: name : .o → Sym)
-(define name
-  (match-lambda [(.add1) 'add1] [(.sub1) 'sub1] [(.sqrt) 'sqrt] [(.+) '+] [(.-) '-] [(.*) '*] [(./) '/]
-                [(.str-len) 'str-len] [(.equal?) 'equal?]
-                [(.=) '=] [(.>) '>] [(.<) '<] [(.≥) '≥] [(.≤) '≤]
-                [(.arity=?) 'arity=?] [(.arity≥?) 'arity≥?] [(.arity-includes?) 'arity-includes?]
-                [(.num?) 'num?] [(.real?) 'real?] [(.int?) 'int?] [(.true?) 'true?] [(.false?) 'false?]
-                [(.bool?) 'bool?] [(.str?) 'str?] [(.symbol?) 'symbol?] [(.proc?) 'proc?]
-                [(.st-mk t _) t]
-                [(.st-ac 'cons 2 0) 'car]
-                [(.st-ac 'cons 2 1) 'cdr]
-                [(.st-ac t _ i)
-                 (string->symbol (string-append (symbol->string t) "@" (number->string i)))]
-                [(.st-p t _) (string->symbol (string-append (symbol->string t) "?"))]))
-
-(define .pred/c (.λ/c (list .any/c) .bool/c #f))
-
-(: ¬l : Sym^3 → Sym^3)
-(define ¬l
-  (match-lambda [(list l+ l- lo) (list l- l+ lo)]))
-
-(: gen-havoc : .p → .p)
-(define (gen-havoc p)
-  (match-define (.p (.m* m-seq ms) e†) p)
-  
-  (define acs ; all public accessors
-    (set->list
-     (for*/fold: : (Setof .st-ac) ([acs : (Setof .st-ac) {set .car .cdr}])
-       ([m (in-hash-values ms)]
-        [defs (in-value (.m-defs m))]
-        [d (in-hash-values defs)]
-        [c (in-value (cdr d))]
-        #:when (match? c (.λ/c _ (? .struct/c?) _)))
-       (match-let* ([(.λ/c _ (.struct/c t cs) _) c]
-                    [n (length cs)])
-         (for/fold ([acs acs]) ([i n])
-           (set-add acs (.st-ac t n i)))))))
-  
-  (define havoc
-    (.λ 1 (.amb (set-add (for/set: .@ ([ac acs])
-                           (.@ (.ref 'havoc '☠ '☠)
-                               (list (.@ ac (list (.x 0)) '☠)) '☠))
-                         (.@ (.ref 'havoc '☠ '☠)
-                             (list (.@-havoc (.x 0))) '☠))) #f))
-  
-  (define ☠ (.m (list 'havoc)
-                (hash-set (ann #hash() (Map Sym (Pairof .e (U #f .e))))
-                          'havoc (cons havoc (.λ/c (list .any/c) .none/c #f)))))
-  
-  (if (hash-has-key? ms '☠) p
-      (.p (.m* (cons '☠ m-seq) (hash-set ms '☠ ☠)) e†)))
-
-(: amb : (Listof .e) → .e)
-(define (amb e*)
-  (let ([s (for/fold: ([ac : (Setof .e) ∅]) ([e e*])
+(: amb : (Listof -e) → -e)
+(define (amb es)
+  (let ([s (for/fold ([acc : (Setof -e) ∅]) ([e es])
              (match e ; try to avoid nested amb
-               [(.amb s) (set-union ac s)]
-               [_ (set-add ac e)]))])
+               [(-amb s) (set-union acc s)]
+               [e (set-add acc e)]))])
     (match (set-count s)
       [1 (set-first s)]
-      [_ (.amb s)])))
+      [_ (-amb s)])))
+
+(define (-and/c [l : L] [cs : (Listof -e)])
+  (let go : -e ([cs : (Listof -e) cs])
+    (match cs
+      ['() -any/c]
+      [(list c) c]
+      [(cons c₁ cᵣ) (-@ l (-struct/cons 'and/c 2) (list c₁ (go cᵣ)))])))
+
+(define (-or/c [l : L] [cs : (Listof -e)])
+  (let go : -e ([cs : (Listof -e) cs])
+    (match cs
+      ['() -none/c]
+      [(list c) c]
+      [(cons c₁ cᵣ) (-@ l (-struct/cons 'or/c 2) (list c₁ (go cᵣ)))])))
+
+(define (-not/c [l : L] [c : -e])
+  (-@ l (-struct/cons 'not/c 1) (list c)))

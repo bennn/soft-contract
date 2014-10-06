@@ -1,7 +1,8 @@
-(module map-append
+(module map-append racket/base
   (provide
-   [map-append ((any . -> . (listof any)) (listof any) . -> . (listof any))]
-   [append ((listof any) (listof any) . -> . (listof any))])
+   (contract-out
+    [map-append ((any . -> . (listof any)) (listof any) . -> . (listof any))]
+    [append ((listof any) (listof any) . -> . (listof any))]))
   
   (define (append xs ys)
     (if (empty? xs) ys
@@ -11,5 +12,6 @@
     (if (empty? xs) empty
         (append (f (car xs)) (map-append f (cdr xs))))))
 
-(require map-append)
-(map-append • •)
+(module main racket/base
+  (require map-append)
+  (define top (map-append • •)))
