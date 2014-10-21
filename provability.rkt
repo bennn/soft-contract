@@ -477,3 +477,25 @@
          [((? .V? V1) (? .V? V2)) (C≃ V1 V2)]
          [(x y) (equal? x y)]))]
     [(_ _) (equal? x y)]))
+
+(: model : .p .σ → .σ)
+(define (model p σ)
+  (match-define (.σ m l) σ)
+  (define m′
+    (for/hash : (Map Int (U .// .μ/V)) ([(L V) m])
+      (values L (model/v p σ V))))
+  (.σ m′ l))
+
+(: model/v : .p .σ .V → (U .// .μ/V))
+(define (model/v p σ V)
+  (match V
+    [(and V (.// U Cs))
+     (match U
+       [(.•)
+        (cond
+         [(and (set-member? Cs NUM/C) (set-member? Cs (.¬/C REAL/C)))
+          (.// (.b +1i) ∅)]
+         [else V])]
+       [_ V])]
+    [(? .μ/V? V) V]
+    [_ (error "model/v: " V)]))

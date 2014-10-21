@@ -221,8 +221,12 @@
             (.σ
              (for/fold ([m : (Map Int (U .// .μ/V)) m])
                        ([line : Any (in-list lines)])
-               (match-define `(define-fun ,(? symbol? a) () ,_ ,(? real? n)) line)
-               (hash-set m (lab→i a) (.// (.b n) ∅)))
+               (match-define `(define-fun ,(? symbol? a) () ,_ ,e) line)
+               (define res
+                 (match e
+                   [`(- ,(? real? x)) (- x)]
+                   [(? real? x) x]))
+               (hash-set m (lab→i a) (.// (.b res) ∅)))
              l)])
           .σ)))]
     [_ #f]))

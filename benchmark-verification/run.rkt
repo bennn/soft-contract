@@ -2,7 +2,7 @@
 (require "../utils.rkt" "../show.rkt" "../lang.rkt" "../closure.rkt" "../machine.rkt"
          (only-in "../query.rkt" [query cvc4])
          (only-in "../query-z3.rkt" [query z3] [model z3/model])
-         (only-in "../provability.rkt" ext-solver))
+         (only-in "../provability.rkt" ext-solver model))
 (require/typed "../read.rkt" [read-p (Any → .p)])
 (require/typed racket/file [file->lines (Path-String → (Listof String))])
 (require/typed racket [string-trim (String String → String)])
@@ -86,7 +86,7 @@
               ['verbose
                (printf "-- ~a~n" (show-A σ A))
                (when (.blm? A)
-                 (define σ′ (z3/model σ))
+                 (define σ′ (z3/model (model p σ)))
                  (when (.σ? σ′)
                    (printf "   Counterexample:~n~a~n" (show-ce p σ′))))]
               ['overbose
