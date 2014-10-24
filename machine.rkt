@@ -44,9 +44,9 @@
              #:when (.•ₗ? (car d)))
       #t))
   
-  (: on-new-state : (Setof .ς) (Setof .ς) (Option .Ans) .ς
+  (: on-new-state : (Setof .ς) (Setof .ς) .ς
      → (Values (Setof .ς) (Setof .ς) (Option .Ans)))
-  (define (on-new-state seen q bns ς)
+  (define (on-new-state seen q ς)
     #;(begin ; debug
       (printf "~a~n" (show-ς ς))
       (read)
@@ -57,20 +57,20 @@
        (values
         seen
         q
-        (cond [(or (equal? l⁺ '†) (equal? l⁺ '☠) (m-opaque? l⁺)) bns]
+        (cond [(or (equal? l⁺ '†) (equal? l⁺ '☠) (m-opaque? l⁺)) #f]
               [else (cons σ blm)]))]
       [(.ς (? .V? V) _ k)
        (match k
-         [(list) (values seen q bns)]
+         [(list) (values seen q #f)]
          [(cons κ kᵣ)
           (match κ
             [(.@/κ '() _ _)
              (define ς↓ (canon ς))
              (cond
-              [(set-member? seen ς↓) (values seen q bns)]
-              [else (values (set-add seen ς↓) (set-add q ς) bns)])]
-            [_ (values seen (set-add q ς) bns)])])]
-      [_ (values seen (set-add q ς) bns)]))
+              [(set-member? seen ς↓) (values seen q #f)]
+              [else (values (set-add seen ς↓) (set-add q ς) #f)])]
+            [_ (values seen (set-add q ς) #f)])])]
+      [_ (values seen (set-add q ς) #f)]))
   
   (let search ([front : (Setof .ς) (set (inj e))] [seen : (Setof .ς) ∅])
     (begin ; debug
@@ -89,12 +89,12 @@
         (for/fold ([seen : (Setof .ς) seen]
                    [front′ : (Setof .ς) ∅]
                    [bns : (Option .Ans) #f])
-                  ([ς front])
+                  ([ς front] #:unless bns)
           (match (step ς)
-            [(? .ς? ς′) (on-new-state seen front′ bns ς′)]
+            [(? .ς? ς′) (on-new-state seen front′ ς′)]
             [(? set? ςs)
-             (for/fold ([seen seen] [front′ front′] [bns bns]) ([ς′ ςs])
-               (on-new-state seen front′ bns ς′))])))
+             (for/fold ([seen seen] [front′ front′] [bns bns]) ([ς′ ςs] #:unless bns)
+               (on-new-state seen front′ ς′))])))
       (cond
        [(false? blm) (search front′ seen)]
        [else blm])])))
@@ -108,8 +108,8 @@
   (: ref-e : Sym Sym → .e)
   (define (ref-e m x)
     (match-define (.m _ defs) (hash-ref ms m))
-    (car (hash-ref defs x)))
-  
+    (car (hash-ref defs x))) 
+ 
   (: ref-c : Sym Sym → .e)
   (define (ref-c m x)
     (match-define (.m _ decs) (hash-ref ms m))
@@ -189,20 +189,20 @@
        (match V
          [(.// (.λ↓ (.λ n _ _) ρ) _)
           (define Vf (.λ↓ (.λ 1 (.@ ● (list (.@ x₀ (for/list ([_ n]) (•!)) '☠)) '☠) #f) ρ∅))
-          (define m′ (hash-set m α (→V Vf)))
-          (step-β Vf V* '☠ (.σ m′ l) k)]
+          (define σ′ (.σ (hash-set m α (→V Vf)) l))
+          (step-β Vf V* '☠ σ′ k)]
          [(.// (.Ar (.// (.Λ/C cs _ _) _) _ _) _)
           (define n (length cs))
           (define Vf (.λ↓ (.λ 1 (.@ ● (list (.@ x₀ (for/list ([_ n]) (•!)) '☠)) '☠) #f) ρ∅))
-          (define m′ (hash-set m α (→V Vf)))
-          (step-β Vf V* '☠ (.σ m′ l) k)]
+          (define σ′ (.σ (hash-set m α (→V Vf)) l))
+          (step-β Vf V* '☠ σ′ k)]
          [(.// (.St t Vs) _)
           (define n (length Vs))
           (for/fold ([ςs : (Setof .ς) ∅]) ([Vᵢ Vs] [i n])
             (define acc (.st-ac t n i))
             (define Vf (.λ↓ (.λ 1 (.@ ● (list (.@ acc (list x₀) '☠)) '☠) #f) ρ∅))
-            (define m′ (hash-set m α (→V Vf)))
-            (set-add ςs (step-β Vf V* '☠ (.σ m′ l) k)))]
+            (define σ′ (.σ (hash-set m α (→V Vf)) l))
+            (set-add ςs (step-β Vf V* '☠ σ′ k)))]
          [(? .prim?) ∅]
          [_ ∅ #|TODO|#])]
       [_
@@ -211,8 +211,8 @@
        (define n (length V*))
        (for/fold ([acc : (Setof .ς) ∅]) ([i n])
          (define Vf (.λ↓ (.λ n (.@ ● (list (.x i)) '☠) #f) ρ∅))
-         (define m′ (hash-set m α (→V Vf)))
-         (set-add acc (step-β Vf (list (list-ref V* (- n i 1))) '☠ (.σ m′ l) k)))]))
+         (define σ′ (.σ (hash-set m α (→V Vf)) l))
+         (set-add acc (step-β Vf V* '☠ σ′ k)))]))
   
   (: step-fc : .V .V Sym .σ .κ* → .ς*)
   (define (step-fc C V l σ k)
@@ -522,7 +522,7 @@
       [(? .X/C? x) x]
       [(? .prim? p) p]
       ;; ρ
-      [(.ρ m l) (.ρ (for/fold: ([m′ : (Map (U Int Sym) .V) m∅]) ([i (in-hash-keys m)])
+      [(.ρ m l) (.ρ (for/fold ([m′ : (Map (U Int Sym) .V) m∅]) ([i (in-hash-keys m)])
                       (hash-set m′ i (fixup (hash-ref m i))))
                     l)]
       ;; κ
@@ -542,7 +542,7 @@
       [(.σ m _)
        #;(printf "F: ~a~nm: ~a~n~n" F m)
        (match-let ([(cons σ′ _) (σ++ σ∅ (hash-count F))])
-                  (for/fold: ([σ′ : .σ σ′]) ([i (in-hash-keys F)])
+                  (for/fold ([σ′ : .σ σ′]) ([i (in-hash-keys F)])
                     (match (hash-ref m i #f)
                       [(? .V? Vi) (σ-set σ′ (hash-ref F i) (subst/L Vi F))]
                       [#f σ′])))]
@@ -580,7 +580,7 @@
       ; ρ
       [(.ρ m l)
        (.ρ
-        (for/fold: : (Map (U Sym Int) .V) ([acc : (Map (U Sym Int) .V) m]) ([k (in-hash-keys m)])
+        (for/fold ([acc : (Map (U Sym Int) .V) m]) ([k (in-hash-keys m)])
           (match (hash-ref m k #f)
             [#f acc]
             [(? .V? V) (hash-set acc k (go V))]))
