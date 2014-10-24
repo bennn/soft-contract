@@ -98,3 +98,10 @@
     (define (in? x) (set-member? s x))
     (: add! : (U τ (Setof τ)) → Void)
     (define (add! x) (set! s (if (set? x) (set-union s x) (set-add s x))))))
+
+(: set-partition : (∀ (X) (X → Boolean) (Setof X) → (Values (Setof X) (Setof X))))
+(define (set-partition p xs)
+  (for/fold ([pass : (Setof X) ∅] [fail : (Setof X) ∅]) ([x xs])
+    (if (p x)
+        (values (set-add pass x) fail)
+        (values pass (set-add fail x)))))

@@ -219,7 +219,7 @@
            [(list 'model lines ...)
             (match-define (.σ m l) σ)
             (.σ
-             (for/fold ([m : (Map Int (U .// .μ/V)) m])
+             (for/fold ([m : (Map Int .//) m])
                        ([line : Any (in-list lines)])
                (match-define `(define-fun ,(? symbol? a) () ,_ ,e) line)
                (define res

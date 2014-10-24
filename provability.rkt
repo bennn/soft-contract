@@ -49,18 +49,6 @@
          [((.// U C*) C) (match (go U C)
                            ['Neither (C*⇒C C* C)]
                            [r r])]
-         [((and V (.μ/V x V*)) C)
-          (assume! (cons V C))
-          (let ([r (for/set: .R ([V (unroll V)]) (go V C))])
-            (match (set-count r) ; TODO optimize?
-              [0 'Proved]
-              [1 (set-first r)]
-              [_ (cond
-                   [(for/and: : Bool ([ri r]) (equal? ri 'Proved)) 'Proved]
-                   [(for/and: : Bool ([ri r]) (equal? ri 'Refuted)) 'Refuted]
-                   [else 'Neither])]))]
-         [((.X/V x) C) 'Proved]
-         
          ; U ∈ C
          [((? .U? U) (? .V? C))
           (match C
@@ -265,7 +253,7 @@
             
             ; struct
             [((.st-p t n) (.St/C t _)) (if (= n 0) 'Proved 'Neither)]
-            [((.St/C t _) (.st-p t n)) (if (= n 0) 'Proved 'Neither)]
+            [((.St/C t _) (.st-p t _)) 'Proved]
             [((.St/C t C*) (.St/C t D*))
              (for/fold: ([a : .R 'Proved]) ([Ci C*] [Di D*])
                (match a
@@ -411,23 +399,6 @@
                   [(? int? i′) #;(printf "yes key~n")(= i i′)])]
                [((.L i) _) (go! (σ@ σ0 i) V1)]
                [(_ (.L j)) (go! V0 (σ@ σ1 j))]
-               [((? .μ/V? V0) (? .μ/V? V1))
-                #;(printf "Case0: ~a~n~n~a~n~n" (show-V σ0 V0) (show-V σ1 V1))
-                (assume! (cons V0 V1))
-                (for/and: : Bool ([V0i (unroll V0)])
-                  (for/or: : Bool ([V1i (unroll V1)]) ;FIXME: may screw up F
-                    (let ([G F])
-                      (or (go! V0i V1i) (begin (set! F G) #f)))))]
-               [((? .μ/V? V0) _)
-                #;(printf "Case2: ~a~n~n~a~n~n" (show-V σ0 V0) (show-V σ1 V1))
-                (assume! (cons V0 V1))
-                (for/and ([V0i (unroll V0)]) (go! V0i V1))]
-               [(_ (? .μ/V? V1))
-                #;(printf "Case1: ~a~n~n~a~n~n" (show-V σ0 V0) (show-V σ1 V1))
-                (assume! (cons V0 V1))
-                (for/or: : Bool ([V1i (unroll V1)])
-                  (let ([G F])
-                    (or (go! V0 V1i) (begin (set! F G) #f))))] ; FIXME: may screw up F
                [(_ _) #f]))]
            [((.ρ m0 l0) (.ρ m1 l1))
             (for/and ([i (in-range 0 (max l0 l1))])
@@ -482,11 +453,11 @@
 (define (model p σ)
   (match-define (.σ m l) σ)
   (define m′
-    (for/hash : (Map Int (U .// .μ/V)) ([(L V) m])
+    (for/hash : (Map Int .//) ([(L V) m])
       (values L (model/v p σ V))))
   (.σ m′ l))
 
-(: model/v : .p .σ .V → (U .// .μ/V))
+(: model/v : .p .σ .V → .//)
 (define (model/v p σ V)
   (match V
     [(and V (.// U Cs))
@@ -497,5 +468,4 @@
           (.// (.b +1i) ∅)]
          [else V])]
        [_ V])]
-    [(? .μ/V? V) V]
     [_ (error "model/v: " V)]))

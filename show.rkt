@@ -33,8 +33,6 @@
     [(.L i) (show-V σ (σ@ σ i))]
     [(.// U C*) (if (.•? U) `(• ,@(for/list : (Listof Any) ([C C*]) (show-V σ C)))
                     (show-U σ U))]
-    [(.X/V x) x]
-    [(.μ/V x V*) `(μ (,x) ,(for/list : (Listof Any) ([V V*]) (show-V σ V)))]
     [(? list? V*) (map (curry show-V σ) V*)]))
 
 (: show-U : .σ .U → Any)
@@ -68,8 +66,8 @@
     [(.L i) (str→sym (str++ "L" (n-sub i)))]
     [(? .A? A) (show-A σ A)]
     [(.↓ e ρ) (show-e σ e)]
-    [(.FC C V _) `(FC ,(show-E σ C) ,(show-E σ V))]
-    [(.Mon C E _) `(▹ ,(show-E σ C) ,(show-E σ E))]
+    [(.FC C V l) `(FC ,l ,(show-E σ C) ,(show-E σ V))]
+    [(.Mon C E l³) `(Mon ,l³ ,(show-E σ C) ,(show-E σ E))]
     [(.Assume V C) `(Asm ,(show-E σ V) ,(show-E σ C))]))
 
 (: show-e : .σ .e → Any)
@@ -89,6 +87,8 @@
       [(.λ 1 (.@ (.arity≥?) (list (.x 0) (.b x)) _) #f) `(arity≥/c ,x)]
       [(.@ (.st-mk 'or/c _) (list (.@ (.st-mk '¬/c _) (list c) _) d) _)
        `(⇒/c ,(go ctx c) ,(go ctx d))]
+      [(.λ 1 (.b #t) #f) 'any/c]
+      [(.λ 1 (.b #f) #f) 'none/c]
       [(.@ (.st-mk (and n 'and/c 'or/c '¬/c) _) c* _) `(,n ,@(map (curry go ctx) c*))]
       [(.@ (.λ n e #f) ex _) (let ([x* (vars-not-in n ctx)])
                                `(let ,(for/list : (Listof Any) ([x (reverse x*)] [ei ex])
@@ -99,8 +99,9 @@
       [(.@ (.λ 1 (.if (.x 0) (.x 0) (? closed? b)) #f) (list a) _)
        `(∨ ,(go ctx a) ,(go ctx b))]
       
-      [(.λ n e v?) (let ([x* (vars-not-in n ctx)])
-                     `(,(if v? 'λ* 'λ) ,x* ,(go (append x* ctx) e)))]
+      [(.λ n e v?)
+       (define x* (vars-not-in n ctx))
+       `(,(if v? 'λ* 'λ) ,(reverse x*) ,(go (append x* ctx) e))]
       [(.•ₗ α) (syn σ α)]
       [(.b b) (show-b b)]
       [(.st-mk t _) t]
@@ -128,9 +129,9 @@
 
 (: show-σ : .σ → (Listof Any))
 (define (show-σ σ)
-  (match-let ([(.σ m l) σ])
-    (for/list ([i (in-range 0 l)])
-      `(,(str++ "L" (n-sub i)) ↦ ,(show-E σ (hash-ref m i))))))
+  (match-define (.σ m _) σ)
+  (for/list : (Listof Any) ([(i v) (in-hash m)])
+    `(,(str++ "L" (n-sub i)) ↦ ,(show-E σ v))))
 
 (: ctx-ref : (Listof Sym) Int → Sym)
 (define (ctx-ref xs i)
@@ -143,8 +144,9 @@
 (: n-sub : Int → String)
 (define (n-sub n)
   (cond
-    [(<= 0 n 9) (substring "₀₁₂₃₄₅₆₇₈₉" n (+ n 1))]
-    [else (str++ (n-sub (quotient n 10)) (n-sub (remainder n 10)))]))
+   [(< n 0) (n-sub (- n))]
+   [(<= 0 n 9) (substring "₀₁₂₃₄₅₆₇₈₉" n (+ n 1))]
+   [else (str++ (n-sub (quotient n 10)) (n-sub (remainder n 10)))]))
 
 (: show-ce : .p .σ → (Listof (Listof Any)))
 (define (show-ce p σ)
@@ -167,4 +169,7 @@
 
 (: syn : .σ Int → Any)
 (define (syn σ α)
-  (show-V σ (σ@ σ α)))
+  (match-define (.σ m _) σ)
+  (match (hash-ref m α #f)
+    [(? .V? V) (show-V σ (σ@ σ α))]
+    [else '•]))
