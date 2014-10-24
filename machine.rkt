@@ -160,38 +160,59 @@
             [(cons σf (.// (.b #f) _)) (.ς (.blm l 'Λ Vf (arity-includes/C (length V*))) σf k)])]
          [(cons σf (.// (.b #f) _)) (.ς (.blm l 'Λ Vf PROC/C) σf k)])]))
   
+  (: ς∪ : .ς* * → .ς+)
+  (define (ς∪ . ςs)
+    (match ςs
+      [(list) ∅]
+      [(list (? .ς? ς)) {set ς}]
+      [(list (? set? s)) s]
+      [_ (for/fold ([acc : .ς+ ∅]) ([ςᵢ ςs])
+           (cond [(set? ςᵢ) (set-union acc ςᵢ)]
+                 [else (set-add acc ςᵢ)]))]))
+  
   (: step-• : .L (Listof .V) Sym .σ .κ* → .ς*)
   (define (step-• Lf V* l σ k)
     (match-define (cons σ′ Lₐ) (σ+ σ))
-    (set-add (step-havoc Lf V* σ k)
-             (.ς Lₐ σ′ k)))
+    (ς∪ (step-havoc Lf V* σ k)
+        (.ς Lₐ σ′ k)))
   
-  (: step-havoc : .L (Listof .V) .σ .κ* → (Setof .ς))
+  (: step-havoc : .L (Listof .V) .σ .κ* → .ς*)
   (define (step-havoc Lf V* σ k)
     (match-define (.σ m l) σ)
     (match-define (.L α) Lf)
-    (match (length V*)
-      [0 ∅]
-      [1 ; Non-deterministically apply propriate operation then put back to unknown context
+    (match V*
+      [(list) ∅]
+      [(list V)
+       ;; Non-deterministically apply propriate operation then put back to unknown context
        (define x₀ (.x 0))
-       (define es (cons (.@ x₀ (list (•!)) '☠)
-                        (for/list : (Listof .e) ([acc accs])
-                          (.@ acc (list x₀) '☠))))
        (define ● (•!))
-       (for/fold ([acc : (Setof .ς) ∅]) ([e : .e es])
-         (define Vf (.λ↓ (.λ 1 (.@ ● (list e) '☠) #f) ρ∅))
-         (define m′ (hash-set m α (→V Vf)))
-         (match (step-β Vf V* '☠ (.σ m′ l) k)
-           [(? set? s) (set-union acc s)]
-           [(? .ς? ς) (set-add acc ς)]))]
-      [n ; Non-determistically havoc 1 arg
+       (match V
+         [(.// (.λ↓ (.λ n _ _) ρ) _)
+          (define Vf (.λ↓ (.λ 1 (.@ ● (list (.@ x₀ (for/list ([_ n]) (•!)) '☠)) '☠) #f) ρ∅))
+          (define m′ (hash-set m α (→V Vf)))
+          (step-β Vf V* '☠ (.σ m′ l) k)]
+         [(.// (.Ar (.// (.Λ/C cs _ _) _) _ _) _)
+          (define n (length cs))
+          (define Vf (.λ↓ (.λ 1 (.@ ● (list (.@ x₀ (for/list ([_ n]) (•!)) '☠)) '☠) #f) ρ∅))
+          (define m′ (hash-set m α (→V Vf)))
+          (step-β Vf V* '☠ (.σ m′ l) k)]
+         [(.// (.St t Vs) _)
+          (define n (length Vs))
+          (for/fold ([ςs : (Setof .ς) ∅]) ([Vᵢ Vs] [i n])
+            (define acc (.st-ac t n i))
+            (define Vf (.λ↓ (.λ 1 (.@ ● (list (.@ acc (list x₀) '☠)) '☠) #f) ρ∅))
+            (define m′ (hash-set m α (→V Vf)))
+            (set-add ςs (step-β Vf V* '☠ (.σ m′ l) k)))]
+         [(? .prim?) ∅]
+         [_ ∅ #|TODO|#])]
+      [_
+       ;; Non-determistically havoc 1 arg
        (define ● (•!))
+       (define n (length V*))
        (for/fold ([acc : (Setof .ς) ∅]) ([i n])
          (define Vf (.λ↓ (.λ n (.@ ● (list (.x i)) '☠) #f) ρ∅))
          (define m′ (hash-set m α (→V Vf)))
-         (match (step-β Vf V* '☠ (.σ m′ l) k)
-           [(? set? s) (set-union acc s)]
-           [(? .ς? ς) (set-add acc ς)]))]))
+         (set-add acc (step-β Vf (list (list-ref V* (- n i 1))) '☠ (.σ m′ l) k)))]))
   
   (: step-fc : .V .V Sym .σ .κ* → .ς*)
   (define (step-fc C V l σ k)

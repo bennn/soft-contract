@@ -451,7 +451,7 @@
     ['() ∅]
     [(list (? .V? V)) {set V}]
     [(list (? set? V)) V]
-    [_ (for/fold: ([acc : (Setof .V) ∅]) ([V V*])
+    [_ (for/fold ([acc : (Setof .V) ∅]) ([V V*])
          (if (set? V) (set-union acc V) (set-add acc V)))]))
 
 (: U^ : .U → (Setof .V))
