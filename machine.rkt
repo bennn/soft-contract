@@ -59,7 +59,12 @@
         q
         (cond [(or (equal? l⁺ '†) (equal? l⁺ '☠) (m-opaque? l⁺)) #f]
               [else (cons σ blm)]))]
-      [(.ς (? .V? V) _ k)
+      [(.ς (? .V? V) σ k)
+       (begin
+         (printf ".~n")
+         (read)
+         (define s : (Pairof Any Any) (show-Ans σ V))
+         (printf "~a~n~a~n~n" (car s) (cdr s)))
        (match k
          [(list) (values seen q #f)]
          [(cons κ kᵣ)
@@ -71,6 +76,48 @@
               [else (values (set-add seen ς↓) (set-add q ς) #f)])]
             [_ (values seen (set-add q ς) #f)])])]
       [_ (values seen (set-add q ς) #f)]))
+  
+  (define (print-ς [ς : .ς])
+    (define it (show-ς ς))
+    (printf "E:~n ~a~n" (second (first it)))
+    (printf "σ:~n")
+    (for ([x (rest (second it))])
+      (printf " ~a~n" x))
+    (printf "k:~n")
+    (for ([x (rest (third it))])
+      (printf " ~a~n" x)))
+  
+  #;(begin
+    (let debug ([ς : .ς (inj e)])
+      (cond
+       [(final? ς)
+        (printf "Final:~n")
+        (print-ς ς)]
+       [else
+        (define next (step ς))
+        (cond
+         [(set? next)
+          (define n (set-count next))
+          (define nextl : (Listof .ς) (set->list next))
+          (printf "~a next states:~n" n)
+          (for ([ςᵢ (in-list nextl)] [i n])
+            (printf "~a:~n" i)
+            (print-ς ςᵢ)
+            (printf "~n"))
+          (define next-choice : Integer
+            (let prompt ()
+              (printf "Explore [0 - ~a]: " (- n 1))
+              (match (read)
+                [(and (? exact-integer? k) (? (λ ([k : Integer]) (<= 0 k (- n 1))))) k]
+                [_ (prompt)])))
+          (debug (list-ref nextl next-choice))]
+         [else
+          (printf "Only next:~n")
+          (print-ς ς)
+          (printf "Continue: ")
+          (read)
+          (debug next)])]))
+    #f)
   
   (let search ([front : (Setof .ς) (set (inj e))] [seen : (Setof .ς) ∅])
     (begin ; debug
@@ -432,7 +479,7 @@
     [(.structc/κ t c _ c↓)
      `(struct/c ,t (,@(reverse (map E c↓)) ,(map (curry show-e σ) c)))]))
 
-(: show-ς : .ς → Any)
+(: show-ς : .ς → (List (Listof Any) (Listof Any) (Listof Any)))
 (define show-ς
   (match-lambda
     [(.ς E σ k) `((E: ,(show-E σ E))

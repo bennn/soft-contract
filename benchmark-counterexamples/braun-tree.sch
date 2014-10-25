@@ -25,4 +25,4 @@
         (node x #f #f))))
 
 (require tree)
-(insert • •)
+(insert • 42)

@@ -6,6 +6,8 @@
 
 (provide (all-defined-out))
 
+(define abstract-V? (make-parameter #t))
+
 (: vars-not-in : Int (Listof Sym) → (Listof Sym))
 (define vars-not-in
   (let* ([pool '(x y z u v w a b c)]
@@ -30,7 +32,7 @@
                    [.σ (Listof .V) → (Listof Any)]))
 (define (show-V σ V)
   (match V
-    [(.L i) (show-V σ (σ@ σ i))]
+    [(.L i) (if (abstract-V?) (show-V σ (σ@ σ i)) (format "L~a" (n-sub i)))]
     [(.// U C*) (if (.•? U) `(• ,@(for/list : (Listof Any) ([C C*]) (show-V σ C)))
                     (show-U σ U))]
     [(? list? V*) (map (curry show-V σ) V*)]))
@@ -58,12 +60,12 @@
     (for/list : (Listof Any) ([x (in-hash-keys m)])
       (cond
         [(sym? x) `(,x ↦ ,(show-V σ (hash-ref m x)))]
-        [(int? x) `(,(str++ "sd" (n-sub (- l x 1))) ↦ ,(show-V σ (hash-ref m x)))]))))
+        [(int? x) `(,(format "sd~a" (n-sub (- l x 1))) ↦ ,(show-V σ (hash-ref m x)))]))))
 
 (: show-E : .σ .E → Any)
 (define (show-E σ E)
   (match E
-    [(.L i) (str→sym (str++ "L" (n-sub i)))]
+    [(.L i) (str→sym (format "L~a" (n-sub i)))]
     [(? .A? A) (show-A σ A)]
     [(.↓ e ρ) (show-e σ e)]
     [(.FC C V l) `(FC ,l ,(show-E σ C) ,(show-E σ V))]
@@ -130,8 +132,9 @@
 (: show-σ : .σ → (Listof Any))
 (define (show-σ σ)
   (match-define (.σ m _) σ)
-  (for/list : (Listof Any) ([(i v) (in-hash m)])
-    `(,(str++ "L" (n-sub i)) ↦ ,(show-E σ v))))
+  (parameterize ([abstract-V? #f])
+    (for/list : (Listof Any) ([(i v) (in-hash m)])
+      `(,(str++ "L" (n-sub i)) ↦ ,(show-E σ v)))))
 
 (: ctx-ref : (Listof Sym) Int → Sym)
 (define (ctx-ref xs i)
@@ -144,7 +147,7 @@
 (: n-sub : Int → String)
 (define (n-sub n)
   (cond
-   [(< n 0) (n-sub (- n))]
+   [(< n 0) (format "₋~a" (n-sub (- n)))]
    [(<= 0 n 9) (substring "₀₁₂₃₄₅₆₇₈₉" n (+ n 1))]
    [else (str++ (n-sub (quotient n 10)) (n-sub (remainder n 10)))]))
 
