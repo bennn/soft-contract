@@ -32,10 +32,18 @@
 (define (inj e)
   (.ς (.↓ e ρ∅) σ∅ empty))
 
+(struct delayed ([n : Integer] [ς : .ς]) #:transparent)
+(define-type Event (U .ς delayed))
+(define-type Queue (Setof Event))
+
 (: ev : .p → (Option .Ans))
 (define (ev p)
   (match-define (.p (and m* (.m* _ ms)) accs e) p)
   (define step (step-p m* accs))
+  (define D 3)
+  
+  (: prob : Real → Boolean)
+  (define (prob p) (<= (random) p))
   
   (: m-opaque? : Sym → Bool)
   (define (m-opaque? x) ; TODO: expensive?
@@ -44,9 +52,9 @@
              #:when (.•ₗ? (car d)))
       #t))
   
-  (: on-new-state : (Setof .ς) (Setof .ς) .ς
-     → (Values (Setof .ς) (Setof .ς) (Option .Ans)))
-  (define (on-new-state seen q ς)
+  (: on-new-state : Queue (Setof .ς) .ς
+     → (Values Queue (Setof .ς) (Option .Ans)))
+  (define (on-new-state front seen ς)
     #;(begin ; debug
       (printf "~a~n" (show-ς ς))
       (read)
@@ -55,28 +63,37 @@
       [(.ς (and blm (.blm l⁺ _ _ _)) σ _)
        #;(printf "blame ~a~n" l⁺)
        (values
+        front
         seen
-        q
         (cond [(or (equal? l⁺ '†) (equal? l⁺ '☠) (m-opaque? l⁺)) #f]
               [else (cons σ blm)]))]
       [(.ς (? .V? V) σ k)
-       (begin
-         (printf ".~n")
-         (read)
-         (define s : (Pairof Any Any) (show-Ans σ V))
-         (printf "~a~n~a~n~n" (car s) (cdr s)))
+       #;(printf "Answer: ~a~n" (show-V σ V))
+       #;(print-if-max "Stack Depth: ~a~n" (length k))
+       #;(print-if-max "V depth: ~a~n" (V-depth σ V))
        (match k
-         [(list) (values seen q #f)]
+         [(list) (values front seen #f)]
          [(cons κ kᵣ)
           (match κ
-            [(.@/κ '() _ _)
+            [(or (.@/κ '() _ _) (.▹/κ (cons _ #f) _))
              (define ς↓ (canon ς))
              (cond
-              [(set-member? seen ς↓) (values seen q #f)]
-              [else (values (set-add seen ς↓) (set-add q ς) #f)])]
-            [_ (values seen (set-add q ς) #f)])])]
-      [_ (values seen (set-add q ς) #f)]))
-  
+              [(set-member? seen ς↓) (values front seen #f)]
+              [else (values (set-add front ς) (set-add seen ς↓) #f)])]
+            [_
+             (define d (V-depth σ V))
+             (define K (length k))
+             (define n (set-count front))
+             (cond
+              [(or (< K 14) (< n 8))
+               (values (set-add front ς) seen #f)]
+              [else
+               (printf "delayed~n")
+               (values (set-add front (delayed (cast (inexact->exact (floor (log n))) Integer) ς))
+                       seen
+                       #f)])])])]
+      [_ (values (set-add front ς) seen #f)]))
+ 
   (define (print-ς [ς : .ς])
     (define it (show-ς ς))
     (printf "E:~n ~a~n" (second (first it)))
@@ -87,7 +104,9 @@
     (for ([x (rest (third it))])
       (printf " ~a~n" x)))
   
+  ;; Interactive debugging
   #;(begin
+    (define k 0)
     (let debug ([ς : .ς (inj e)])
       (cond
        [(final? ς)
@@ -95,6 +114,7 @@
         (print-ς ς)]
        [else
         (define next (step ς))
+        (set! k (+ 1 k))
         (cond
          [(set? next)
           (define n (set-count next))
@@ -111,17 +131,15 @@
                 [(and (? exact-integer? k) (? (λ ([k : Integer]) (<= 0 k (- n 1))))) k]
                 [_ (prompt)])))
           (debug (list-ref nextl next-choice))]
-         [else
-          (printf "Only next:~n")
-          (print-ς ς)
-          (printf "Continue: ")
-          (read)
-          (debug next)])]))
+         [else (debug next)])]))
+    (printf "Done, ~a steps taken~n" k)
+    (read)
     #f)
   
-  (let search ([front : (Setof .ς) (set (inj e))] [seen : (Setof .ς) ∅])
+  (define j 0)
+  (let search ([front : Queue (set (inj e))] [seen : (Setof .ς) ∅])
     (begin ; debug
-      (printf "~a~n" (set-count front))
+      (printf "~a: ~a~n" j (set-count front))
       #;(when #t (= (set-count front) 106)
         (for ([ς front])
           (printf "~a~n" (show-ς ς)))
@@ -132,18 +150,23 @@
     (cond
      [(set-empty? front) #f]
      [else
-      (define-values (_seen front′ blm)
-        (for/fold ([seen : (Setof .ς) seen]
-                   [front′ : (Setof .ς) ∅]
+      (set! j (+ 1 j))
+      (define-values (front′ seen′ blm)
+        (for/fold ([front′ : Queue ∅]
+                   [seen : (Setof .ς) seen]
                    [bns : (Option .Ans) #f])
                   ([ς front] #:unless bns)
-          (match (step ς)
-            [(? .ς? ς′) (on-new-state seen front′ ς′)]
-            [(? set? ςs)
-             (for/fold ([seen seen] [front′ front′] [bns bns]) ([ς′ ςs] #:unless bns)
-               (on-new-state seen front′ ς′))])))
+          (match ς
+            [(delayed (? positive? n) ς) (values (set-add front′ (delayed (- n 1) ς)) seen bns)]
+            [(delayed _ ς) (values (set-add front′ ς) seen bns)]
+            [(? .ς? ς)
+             (match (step ς)
+               [(? .ς? ς′) (on-new-state front′ seen ς′)]
+               [(? set? ςs)
+                (for/fold ([front′ front′] [seen seen] [bns bns]) ([ς′ ςs] #:unless bns)
+                  (on-new-state front′ seen ς′))])])))
       (cond
-       [(false? blm) (search front′ seen)]
+       [(false? blm) (search front′ seen′)]
        [else blm])])))
 
 (define-syntax-rule (match/nd v [p e ...] ...) (match/nd: (.Ans → .ς) v [p e ...] ...))
@@ -636,3 +659,22 @@
       [(? list? V*) (map go V*)]
       [(? set? s) (for/set: .V ([V s]) (go V))]))
   (go V))
+
+(: V-depth : .σ .V → Integer)
+(define (V-depth σ V)
+  (match V
+    [(.// U _)
+     (match U
+       [(.St _ Vs)
+        (+ 1 (apply max -1 (map (curry V-depth σ) Vs)))]
+       [(.λ↓ _ (.ρ m _))
+        (+ 1 (apply max -1 (map (curry V-depth σ) (hash-values m))))]
+       [_ 0])]
+    [(.L α) (V-depth σ (σ@ σ α))]))
+
+(define print-if-max
+  (let ([n -1])
+    (λ ([s : String] [k : Integer])
+      (when (> k n)
+        (set! n k)
+        (printf s k)))))
