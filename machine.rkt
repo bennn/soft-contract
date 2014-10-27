@@ -60,11 +60,6 @@
         (cond [(or (equal? l⁺ '†) (equal? l⁺ '☠) (m-opaque? l⁺)) #f]
               [else (cons σ blm)]))]
       [(.ς (? .V? V) σ k)
-       (begin
-         (printf ".~n")
-         (read)
-         (define s : (Pairof Any Any) (show-Ans σ V))
-         (printf "~a~n~a~n~n" (car s) (cdr s)))
        (match k
          [(list) (values seen q #f)]
          [(cons κ kᵣ)
