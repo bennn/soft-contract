@@ -105,3 +105,5 @@
     (if (p x)
         (values (set-add pass x) fail)
         (values pass (set-add fail x)))))
+
+(define-syntax-rule (inc! x) (set! x (+ 1 x)))
