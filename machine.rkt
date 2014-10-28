@@ -170,7 +170,7 @@
   (define stepᵢ 0)
   (: search : (Setof .ς) → (Option .Ans))
   (define (search front)
-    (begin ; debug
+    (begin ; debugn
       (printf "~a: ~a~n" stepᵢ (set-count front))
       (for ([(k v) m]) (printf " ~a ↦ ~a~n" k v))
       (printf "~n"))
@@ -189,14 +189,19 @@
   
   ;; Interactive debugging
   (let ()
+    (define l : (Listof Integer) '())
     (define stepᵢ 0)
     (let debug ([ς : .ς (inj e)])
-      (match-define (.ς _ _ k) ς)
-      (print-if-max "Stack Depth: ~a~n" (length k))
+      (match-define (.ς _ σ k) ς)
+      (define b? (maybe-blame? k))
+      (printf "~a: Stack: (~a) ~n" stepᵢ b?)
+      (when b? (set! l (cons stepᵢ l)))
+      (for ([κ k]) (printf " ~a~n" (show-κ σ κ)))
       (cond
        [(final? ς)
         (printf "Final:~n")
-        (print-ς ς)]
+        (print-ς ς)
+        (printf "forwardables: ~a" l)]
        [else
         (define next (step ς))
         (inc! stepᵢ)
