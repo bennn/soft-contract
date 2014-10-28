@@ -26,11 +26,28 @@
 
 (: final? : .ς → Bool)
 (define final?
-  (match-λ? (.ς (? .blm?) _ _) (.ς (.V) _ (list))))
+  (match-λ? (.ς (? .blm?) _ _) (.ς (? .V?) _ (list))))
 
 (: inj : .e → .ς)
 (define (inj e)
   (.ς (.↓ e ρ∅) σ∅ empty))
+
+(define It
+  `((E: #t)
+    (σ:
+     (L₀ ↦ (•))
+     (L₁ ↦ (node L₃ L₄ L₅))
+     (L₂ ↦ #f)
+     (L₃ ↦ (•))
+     (L₄ ↦ #f)
+     (L₅ ↦ #f)
+     (L₋₂ ↦ (node L₀ L₁ L₂)))
+    (k:
+     (if ● (cons #t 0) (if (node? ⋯₀) (let ((x (braun-tree?/helper (node-l ⋯₀)))) (if (car x) (let ((x1 (braun-tree?/helper (node-r ⋯₀)))) (if (car x1) (let ((x2 (cdr x)) (y (cdr x1))) (cons (let ((x3 (= x2 y))) (if x3 x3 (= x2 (+ y 1)))) (+ (+ x2 y) 1))) (cons #f 0))) (cons #f 0))) (cons #f 0)))
+     (@ (λ (x) (if (car x) (let ((x1 (cdr ⋯₀)) (y (cdr x))) (cons (let ((x2 (= x1 y))) (if x2 x2 (= x1 (+ y 1)))) (+ (+ x1 y) 1))) (cons #f 0))) ●)
+     (@ car ●)
+     (if ● (Asm L₋₂ (λ (x) (car (braun-tree?/helper x)))) (blame † tree (node (•) (node (•) #f #f) #f) (λ (x) (car (braun-tree?/helper x)))))
+     (indy (any/c) (42) ((λ (x y) (if (node? x) (node (node-v x) (insert (node-l x) y) (node-r x)) (node y #f #f)))) braun-tree?))))
 
 (: print-ς : .ς → Void)
 (define (print-ς ς)
@@ -79,6 +96,11 @@
   (define m : (Map Any Integer) (make-hash))
   (: on-new-state : (Setof .ς) .ς → (Values (Setof .ς) (Option .Ans)))
   (define (on-new-state front ς)
+    (begin
+      (match-define (list s1 _ s3) (show-ς ς))
+      (when (and (equal? s1 (first It))
+                 (equal? s3 (third It)))
+        (error "Duh!~n")))
     #;(when (final? ς) ; debug
       (match ς
         [(.ς (? .V? V) σ _)
@@ -104,31 +126,38 @@
          [(list) (values front #f)]
          [(cons κ kᵣ)
           (match κ
-            [(or (.@/κ '() _ _) (.▹/κ (cons _ #f) _))
+            #;[(or (.@/κ '() _ _) (.▹/κ (cons _ #f) _))
              (define ς↓ (canon ς))
              (cond
               [(set-member? seen ς↓) (values front #f)]
               [else
                (set! seen (set-add seen ς↓))
                (cond
-                [(maybe-blame? kᵣ)
-                 (printf "FFW~n")
+                #;[(maybe-blame? ς)
+                 (printf "FFW of~n")
+                 (print-ς ς)
                  (read)
-                 (match (ffw ς 400)
-                   [(? set? s) (values (set-union front s) #f)]
-                   [(? cons? ans) (values front ans)])]
+                 (define ffw-ed (ffw ς 1000))
+                 (printf "is~n")
+                 (match ffw-ed
+                   [(? set? s)
+                    (for ([ς s]) (print-ς ς))
+                    (values (set-union front s) #f)]
+                   [(? cons? ans)
+                    (printf "~a~n" (show-Ans ans))
+                    (values front ans)])]
                 [else (values (set-add front ς) #f)])])]
             [_ (values (set-add front ς) #f)])])]
       [_ (values (set-add front ς) #f)]))
   
-  (: ffw : .ς Integer → (U (Setof .ς) .Ans))
-  (define (ffw ς n)
+  #;(: ffw : .ς Integer → (U (Setof .ς) .Ans))
+  #;(define (ffw ς n)
     (match n
       [0 {set ς}]
       [n (match (step ς)
            [(.ς (and blm (.blm l⁺ _ _ _)) σ _)
             #;(printf "blame ~a~n" l⁺)
-            (cond [(or (equal? l⁺ '†) (equal? l⁺ '☠) (m-opaque? l⁺)) ∅]
+            (cond [(m-opaque? l⁺) ∅]
                   [else (cons σ blm)])]
            [(? .ς? ς′)
             (cond
@@ -139,7 +168,11 @@
             (for/fold ([acc : (U (Setof .ς) .Ans) ∅]) ([ς′ s])
               (cond
                [(cons? acc) acc]
-               [(final? ς′) acc]
+               [(final? ς′)
+                (match ς′
+                  [(.ς (and blm (.blm (not (? m-opaque?)) _ _ _)) σ _)
+                   (cons σ blm)]
+                  [_ acc])]
                [(maybe-blame? ς′)
                 (match (ffw ς′ (- n 1))
                   [(? set? s) (set-union acc s)]
