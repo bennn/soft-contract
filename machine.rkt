@@ -54,24 +54,49 @@
   
   (: m-opaque? : Sym → Bool)
   (define (m-opaque? x) ; TODO: expensive?
-    (match-define (.m _ defs) (hash-ref ms x))
-    (for/or ([d (in-hash-values defs)]
-             #:when (.•ₗ? (car d)))
-      #t))
+    (match x
+      ['† #t]
+      ['☠ #t]
+      [_
+       (match-define (.m _ defs) (hash-ref ms x))
+       (for/or ([d (in-hash-values defs)]
+                #:when (.•ₗ? (car d)))
+         #t)]))
+  
+  (: maybe-blame? : (U .κ* .ς) → Boolean)
+  (define maybe-blame?
+    (match-lambda
+     [(list) #f]
+     [(cons κ kᵣ)
+      (match κ
+        [(.if/κ (.blm l _ _ _) _) (not (m-opaque? l))]
+        [(.if/κ _ (.blm l _ _ _)) (not (m-opaque? l))]
+        [_ (maybe-blame? kᵣ)])]
+     [(.ς _ _ k) (maybe-blame? k)]))
   
   (define seen : (Setof .ς) ∅)
   
-  (: on-new-state : (Setof .ς) .ς
-     → (Values (Setof .ς) (Option .Ans)))
+  (define m : (Map Any Integer) (make-hash))
+  (: on-new-state : (Setof .ς) .ς → (Values (Setof .ς) (Option .Ans)))
   (define (on-new-state front ς)
+    #;(when (final? ς) ; debug
+      (match ς
+        [(.ς (? .V? V) σ _)
+         (hash-update! m (show-Ans σ V) add1 (λ () 0))]
+        [(.ς (.blm _ _ V _) σ _)
+         (hash-update! m `(blm ,(show-Ans σ V)) add1 (λ () 0))]))
     (match ς
       [(.ς (and blm (.blm l⁺ _ _ _)) σ _)
        #;(printf "blame ~a~n" l⁺)
        (values
         front
-        (cond [(or (equal? l⁺ '†) (equal? l⁺ '☠) (m-opaque? l⁺)) #f]
+        (cond [(m-opaque? l⁺) #f]
               [else (cons σ blm)]))]
       [(.ς (? .V? V) σ k)
+       #;(define D (V-depth σ V))
+       #;(hash-update! m D add1 (λ () 0))
+       #;(when (>= D 3)
+       (printf "Big V: ~a~n" (show-V σ V)))
        #;(printf "Answer: ~a~n" (show-V σ V))
        #;(print-if-max "Stack Depth: ~a~n" (length k))
        #;(print-if-max "V depth: ~a~n" (V-depth σ V))
@@ -85,43 +110,89 @@
               [(set-member? seen ς↓) (values front #f)]
               [else
                (set! seen (set-add seen ς↓))
-               (values (set-add front ς) #f)])]
+               (cond
+                [(maybe-blame? kᵣ)
+                 (printf "FFW~n")
+                 (read)
+                 (match (ffw ς 400)
+                   [(? set? s) (values (set-union front s) #f)]
+                   [(? cons? ans) (values front ans)])]
+                [else (values (set-add front ς) #f)])])]
             [_ (values (set-add front ς) #f)])])]
       [_ (values (set-add front ς) #f)]))
+  
+  (: ffw : .ς Integer → (U (Setof .ς) .Ans))
+  (define (ffw ς n)
+    (match n
+      [0 {set ς}]
+      [n (match (step ς)
+           [(.ς (and blm (.blm l⁺ _ _ _)) σ _)
+            #;(printf "blame ~a~n" l⁺)
+            (cond [(or (equal? l⁺ '†) (equal? l⁺ '☠) (m-opaque? l⁺)) ∅]
+                  [else (cons σ blm)])]
+           [(? .ς? ς′)
+            (cond
+             [(final? ς′) ∅]
+             [(maybe-blame? ς′) (ffw ς′ (- n 1))]
+             [else {set ς′}])]
+           [(? set? s)
+            (for/fold ([acc : (U (Setof .ς) .Ans) ∅]) ([ς′ s])
+              (cond
+               [(cons? acc) acc]
+               [(final? ς′) acc]
+               [(maybe-blame? ς′)
+                (match (ffw ς′ (- n 1))
+                  [(? set? s) (set-union acc s)]
+                  [(? cons? ans) ans])]
+               [else (set-add acc ς′)]))])]))
+  
+  (: batch-step : (Setof .ς) → (Values (Setof .ς) (Option .Ans)))
+  (define (batch-step front)
+    #;(for/fold ([acc : (U (Setof .ς) .Ans) ∅]) ([ς front])
+      (match (ffw ς 500)
+        [(? set? s) (set-union (cast acc (Setof .ς)) s)]
+        [(? cons? ans) ans]))
+    (for/fold ([front′ : (Setof .ς) ∅]
+               [bns : (Option .Ans) #f])
+              ([ς front] #:unless bns)
+      (match (step ς)
+        [(? .ς? ς′) (on-new-state front′ ς′)]
+        [(? set? ςs)
+         (begin ; debug
+           #;(print-ς ς)
+           #;(printf "~nsplits into ~a:~n" (set-count ςs))
+           #;(for ([ςᵢ ςs]) (print-ς ςᵢ))
+           #;(printf "~n")) 
+         (for/fold ([front′ front′] [bns bns])
+                   ([ς ςs] #:unless bns)
+           (on-new-state front′ ς))])))
   
   (define stepᵢ 0)
   (: search : (Setof .ς) → (Option .Ans))
   (define (search front)
     (begin ; debug
       (printf "~a: ~a~n" stepᵢ (set-count front))
-      #;(when #t (= (set-count front) 106)
-      (for ([ς front])
-      (printf "~a~n" (show-ς ς)))
-      (read)
-      (printf "~n")
-      (printf "~a~n" (set-count front))
-      (error "STOP"))) 
+      (for ([(k v) m]) (printf " ~a ↦ ~a~n" k v))
+      (printf "~n"))
     (cond
-     [(set-empty? front) #f]
+     [(set-empty? front) #f
+      #;(cond
+       [(set-empty? back) #f]
+       [else (search back ∅ 0)])]
+     ;[(> stepᵢ 575) #f] ; TODO just for debugging
      [else
       (inc! stepᵢ)
-      (define-values (front′ blm)
-        (for/fold ([front′ : (Setof .ς) ∅]
-                   [bns : (Option .Ans) #f])
-                  ([ς front] #:unless bns)
-          (match (step ς)
-            [(? .ς? ς′) (on-new-state front′ ς′)]
-            [(? set? ςs)
-             (for/fold ([front′ front′] [bns bns]) ([ς′ ςs] #:unless bns)
-               (on-new-state front′ ς′))])))
+      (define-values (front′ blm) (batch-step front))
       (cond
        [(false? blm) (search front′)]
        [else blm])]))
   
   ;; Interactive debugging
-  #;(let ()
+  (let ()
     (define stepᵢ 0)
     (let debug ([ς : .ς (inj e)])
+      (match-define (.ς _ _ k) ς)
+      (print-if-max "Stack Depth: ~a~n" (length k))
       (cond
        [(final? ς)
         (printf "Final:~n")

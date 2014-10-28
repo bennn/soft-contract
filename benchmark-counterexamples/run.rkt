@@ -6,6 +6,7 @@
 (require/typed "../read.rkt" [read-p (Any → .p)])
 (require/typed racket/file [file->lines (Path-String → (Listof String))])
 (require/typed racket [string-trim (String String → String)])
+(require/typed profile [profile-thunk ((→ (Option .Ans)) → (Option .Ans))])
 
 (define-type Mode (U 'tex 'verbose 'overbose))
 (define-type N Nonnegative-Integer)
@@ -40,7 +41,7 @@
   (within-time: Bm-Result
                 TIMEOUT
                 (let-values ([([r : (List (Option .Ans))] [t1 : N] [t2 : N] [t3 : N])
-                              (time-app ev (list p))])
+                              (time-app (λ ([p : .p]) (profile-thunk (λ () (ev p)))) (list p))])
                   (list (first r) t1 t2 t3))))
 
 (define-syntax-rule (+! x v) (when (number? v) (set! x (+ x v))))
