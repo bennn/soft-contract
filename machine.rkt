@@ -59,15 +59,16 @@
              #:when (.•ₗ? (car d)))
       #t))
   
-  (: on-new-state : (Setof .ς) (Setof .ς) .ς
-     → (Values (Setof .ς) (Setof .ς) (Option .Ans)))
-  (define (on-new-state front seen ς)
+  (define seen : (Setof .ς) ∅)
+  
+  (: on-new-state : (Setof .ς) .ς
+     → (Values (Setof .ς) (Option .Ans)))
+  (define (on-new-state front ς)
     (match ς
       [(.ς (and blm (.blm l⁺ _ _ _)) σ _)
        #;(printf "blame ~a~n" l⁺)
        (values
         front
-        seen
         (cond [(or (equal? l⁺ '†) (equal? l⁺ '☠) (m-opaque? l⁺)) #f]
               [else (cons σ blm)]))]
       [(.ς (? .V? V) σ k)
@@ -75,20 +76,22 @@
        #;(print-if-max "Stack Depth: ~a~n" (length k))
        #;(print-if-max "V depth: ~a~n" (V-depth σ V))
        (match k
-         [(list) (values front seen #f)]
+         [(list) (values front #f)]
          [(cons κ kᵣ)
           (match κ
             [(or (.@/κ '() _ _) (.▹/κ (cons _ #f) _))
              (define ς↓ (canon ς))
              (cond
-              [(set-member? seen ς↓) (values front seen #f)]
-              [else (values (set-add front ς) (set-add seen ς↓) #f)])]
-            [_ (values (set-add front ς) seen #f)])])]
-      [_ (values (set-add front ς) seen #f)]))
+              [(set-member? seen ς↓) (values front #f)]
+              [else
+               (set! seen (set-add seen ς↓))
+               (values (set-add front ς) #f)])]
+            [_ (values (set-add front ς) #f)])])]
+      [_ (values (set-add front ς) #f)]))
   
   (define stepᵢ 0)
-  (: search : (Setof .ς) (Setof .ς) → (Option .Ans))
-  (define (search front seen)
+  (: search : (Setof .ς) → (Option .Ans))
+  (define (search front)
     (begin ; debug
       (printf "~a: ~a~n" stepᵢ (set-count front))
       #;(when #t (= (set-count front) 106)
@@ -102,22 +105,21 @@
      [(set-empty? front) #f]
      [else
       (inc! stepᵢ)
-      (define-values (front′ seen′ blm)
+      (define-values (front′ blm)
         (for/fold ([front′ : (Setof .ς) ∅]
-                   [seen : (Setof .ς) seen]
                    [bns : (Option .Ans) #f])
                   ([ς front] #:unless bns)
           (match (step ς)
-            [(? .ς? ς′) (on-new-state front′ seen ς′)]
+            [(? .ς? ς′) (on-new-state front′ ς′)]
             [(? set? ςs)
-             (for/fold ([front′ front′] [seen seen] [bns bns]) ([ς′ ςs] #:unless bns)
-               (on-new-state front′ seen ς′))])))
+             (for/fold ([front′ front′] [bns bns]) ([ς′ ςs] #:unless bns)
+               (on-new-state front′ ς′))])))
       (cond
-       [(false? blm) (search front′ seen′)]
+       [(false? blm) (search front′)]
        [else blm])]))
   
   ;; Interactive debugging
-  (let ()
+  #;(let ()
     (define stepᵢ 0)
     (let debug ([ς : .ς (inj e)])
       (cond
@@ -148,7 +150,7 @@
     (read)
     #f)
   
-  (search (set (inj e)) ∅))
+  (search (set (inj e))))
 
 (define-syntax-rule (match/nd v [p e ...] ...) (match/nd: (.Ans → .ς) v [p e ...] ...))
 
