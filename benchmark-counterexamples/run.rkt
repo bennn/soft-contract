@@ -6,7 +6,6 @@
 (require/typed "../read.rkt" [read-p (Any → .p)])
 (require/typed racket/file [file->lines (Path-String → (Listof String))])
 (require/typed racket [string-trim (String String → String)])
-(require/typed profile [profile-thunk ((→ (Option .Ans)) → (Option .Ans))])
 
 (define-type Mode (U 'tex 'verbose 'overbose))
 (define-type N Nonnegative-Integer)
@@ -15,7 +14,7 @@
 (define mode : Mode 'verbose)
 (define files : (Listof String) '())
 (define solver : (.σ .V .V → .R) z3)
-(define TIMEOUT 999999)
+(define TIMEOUT 600)
 #;(define ITER 1)
 #;(: avg : Real → Real)
 #;(define (avg x) (* (/ x ITER) 1.0))
@@ -41,7 +40,7 @@
   (within-time: Bm-Result
                 TIMEOUT
                 (let-values ([([r : (List (Option .Ans))] [t1 : N] [t2 : N] [t3 : N])
-                              (time-app (λ ([p : .p]) (profile-thunk (λ () (ev p)))) (list p))])
+                              (time-app ev (list p))])
                   (list (first r) t1 t2 t3))))
 
 (define-syntax-rule (+! x v) (when (number? v) (set! x (+ x v))))
