@@ -1,0 +1,12 @@
+zombie
+contract (100 runs): 24761
+verified (100 runs): 3644
+speedup:            6.795005488474204
+snake
+contract (100 runs): 1660937
+verified (100 runs): 296
+speedup:            5611.273648648648
+tetris
+contract (100 runs): 2715428
+verified (100 runs): 515
+speedup:            5272.67572815534
